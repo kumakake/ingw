@@ -1,0 +1,5 @@
+git config --global user.name "kumakake"
+git config --global user.email info@kumakake.com
+git branch -M main
+git remote add origin https://github.com/kumakake/ingw.git
+git push -u origin main

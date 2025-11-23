@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+ecosystem.config.js
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+evi/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Docker
+docker-compose.override.yml
+.docker/
