@@ -3,3 +3,68 @@ git config --global user.email info@kumakake.com
 git branch -M main
 git remote add origin https://github.com/kumakake/ingw.git
 git push -u origin main
+
+
+> ssl_session_cache shared:SSL:50m;
+
+この記載が以下のようにエラーになっています。
+nginx: [emerg] the size 52428800 of shared memory zone "SSL" conflicts with already declared size 1048576 in
+/etc/nginx/sites-enabled/ingw.ai-trans-labo.fun.ssl.conf:64
+
+⏺ このエラーは、他のnginx設定ファイルで既にSSLという名前の共有メモリゾーンが異なるサイズ（1MB）で定義されているため、競合が発生しています。
+
+  解決策
+
+  方法1: 名前を変えて独自のキャッシュを使う
+
+  ssl_session_cache shared:instagram_oauth_SSL:10m;
+
+  方法2: この行を削除して既存のキャッシュに任せる
+
+  どちらにしますか？方法1が安全でおすすめです。
+
+  反映する場合はお知らせください。
+
+> 確かに他で、サイズは1mで設定されています。
+1mでは少ないですか？
+
+⏺ 1MBで約4,000セッションをキャッシュできます。
+
+  サイズの目安
+
+  | サイズ | キャッシュ可能セッション数 |
+  |-----|---------------|
+  | 1m  | 約4,000        |
+  | 10m | 約40,000       |
+  | 50m | 約200,000      |
+
+  判断基準
+
+  1MBで十分なケース:
+  - 同時接続が数百〜数千程度
+  - 小〜中規模サイト
+  - Instagram OAuthのような認証サービス（アクセス頻度が限定的）
+
+  増やすべきケース:
+  - 高トラフィックサイト（数万同時接続）
+  - セッション再利用率を最大化したい
+
+  ---
+  結論
+
+  Instagram OAuthサービスなら1MBで十分です。
+
+# データベース作成方法
+## ユーザー作成
+sudo -u postgres psql
+postgres=# CREATE USER datauser WITH ENCRYPTED PASSWORD 'pP4gz81AkDiaeaTb';
+postgres=# CREATE DATABASE instagram_oauth_db OWNER datauser;
+- 確認
+postgres=# \du datauser
+postgres=# \l instagram_oauth_db
+postgres=# \q
+
+
+https://ingw.ai-trans-labo.fun/license.html
+https://ingw.ai-trans-labo.fun/
+
