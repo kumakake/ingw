@@ -17,11 +17,11 @@ class AuthController {
 
     if (error) {
       console.error('OAuth error:', error, error_description);
-      return res.redirect(`/?error=${encodeURIComponent(error_description || error)}`);
+      return res.redirect(`/geting.html?error=${encodeURIComponent(error_description || error)}`);
     }
 
     if (!code) {
-      return res.redirect('/?error=No authorization code received');
+      return res.redirect('/geting.html?error=No authorization code received');
     }
 
     try {
@@ -41,10 +41,10 @@ class AuthController {
       }));
 
       const encodedData = encodeURIComponent(JSON.stringify(resultData));
-      res.redirect(`/?success=true&data=${encodedData}`);
+      res.redirect(`/geting.html?success=true&data=${encodedData}`);
     } catch (error) {
       console.error('Callback error:', error);
-      res.redirect(`/?error=${encodeURIComponent(error.message)}`);
+      res.redirect(`/geting.html?error=${encodeURIComponent(error.message)}`);
     }
   }
 
