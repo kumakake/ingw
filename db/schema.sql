@@ -52,6 +52,8 @@ CREATE TABLE licenses (
     id SERIAL PRIMARY KEY,
     license_key VARCHAR(32) UNIQUE NOT NULL,
     domain VARCHAR(255),
+    user_no VARCHAR(255),
+    user_name VARCHAR(255),
     is_active BOOLEAN DEFAULT true,
     activated_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

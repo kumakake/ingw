@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 const licenseRoutes = require('./routes/license');
 const tokenScheduler = require('./services/tokenScheduler');
+const adminAuth = require('./middleware/adminAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,7 +33,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 app.use('/auth', authRoutes);
 app.use('/api/instagram', apiRoutes);
-app.use('/api/license', licenseRoutes);
+app.use('/api/license', adminAuth, licenseRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

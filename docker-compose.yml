@@ -40,6 +40,8 @@ services:
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      ADMIN_USERNAME : admin
+      ADMIN_PASSWORD : password
     ports:
       - "${PORT:-3000}:3000"
     volumes:
