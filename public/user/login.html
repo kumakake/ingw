@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用者ログイン - Instagram OAuth Service</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+  <div id="header"></div>
+  
+  <div class="auth-container">
+    <div class="auth-card card">
+      <div class="auth-header">
+        <div class="auth-logo">🔐</div>
+        <h1 class="auth-title">利用者ログイン</h1>
+        <p class="auth-subtitle">アカウント情報を入力してログインしてください</p>
+      </div>
+      
+      <div id="messageContainer"></div>
+      
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="loginAccount">ログインアカウント</label>
+          <input type="text" id="loginAccount" class="form-input" required placeholder="ログインアカウントを入力">
+        </div>
+        
+        <div class="form-group">
+          <label for="password">パスワード</label>
+          <input type="password" id="password" class="form-input" required placeholder="パスワードを入力">
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+          ログイン
+        </button>
+      </form>
+      
+      <div class="auth-footer">
+        <p><a href="/user/forgot-password">パスワードをお忘れですか？</a></p>
+        <p class="mt-4">アカウントをお持ちでない方は<br><a href="/user/send-verification">利用者新規登録</a></p>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/common.js"></script>
+  <script>
+    // Check if already logged in
+    if (TokenManager.isLoggedIn()) {
+      window.location.href = '/user/dashboard';
+    }
+    
+    async function handleLogin(e) {
+      e.preventDefault();
+      
+      const loginAccount = document.getElementById('loginAccount').value;
+      const password = document.getElementById('password').value;
+      
+      try {
+        const response = await fetch('/api/user/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ loginAccount, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          TokenManager.set(data.token);
+          TokenManager.setUser(data.user);
+          window.location.href = '/user/dashboard';
+        } else {
+          showMessage(data.error || 'ログインに失敗しました', 'error');
+        }
+      } catch (error) {
+        showMessage('通信エラーが発生しました', 'error');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用者新規登録 - Instagram OAuth Service</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+  <div id="header"></div>
+  
+  <div class="auth-container">
+    <div class="auth-card card">
+      <div class="auth-header">
+        <div class="auth-logo">📧</div>
+        <h1 class="auth-title">利用者新規登録</h1>
+        <p class="auth-subtitle">メールアドレスを入力してください。<br>登録用のURLをお送りします。</p>
+      </div>
+      
+      <div id="messageContainer"></div>
+      
+      <div id="formSection">
+        <form id="verificationForm" onsubmit="handleSendVerification(event)">
+          <div class="form-group">
+            <label for="email">メールアドレス</label>
+            <input type="email" id="email" class="form-input" required placeholder="example@email.com">
+          </div>
+          
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" id="submitBtn">
+            確認メールを送信
+          </button>
+        </form>
+      </div>
+      
+      <div id="successSection" style="display: none;">
+        <div class="message message-success">
+          <p><strong>確認メールを送信しました</strong></p>
+          <p>メールに記載されたURLから、ユーザー登録を完了してください。</p>
+          <p style="margin-top: 12px; font-size: 12px; color: #666;">メールが届かない場合は、迷惑メールフォルダをご確認ください。</p>
+        </div>
+      </div>
+      
+      <div class="auth-footer">
+        <p>既にアカウントをお持ちの方は<br><a href="/user/login">ログイン</a></p>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/common.js"></script>
+  <script>
+    async function handleSendVerification(e) {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const submitBtn = document.getElementById('submitBtn');
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = '送信中...';
+      
+      try {
+        const response = await fetch('/api/user/send-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          document.getElementById('formSection').style.display = 'none';
+          document.getElementById('successSection').style.display = 'block';
+        } else {
+          showMessage(data.error || 'メール送信に失敗しました', 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '確認メールを送信';
+        }
+      } catch (error) {
+        showMessage('通信エラーが発生しました', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '確認メールを送信';
+      }
+    }
+  </script>
+</body>
+</html>

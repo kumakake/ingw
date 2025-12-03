@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用者サービス管理 - Instagram OAuth Service</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="header"></div>
+  
+  <div class="container">
+    <div class="page-header">
+      <h1 class="page-title">利用者サービス管理</h1>
+      <p class="page-subtitle">ライセンス発行と決済管理を行えます</p>
+    </div>
+    
+    <div id="messageContainer"></div>
+    
+    <div class="dashboard-grid">
+      <!-- License Section -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🔑 ライセンス</h2>
+        </div>
+        <div id="licenseSection">
+          <p>読み込み中...</p>
+        </div>
+      </div>
+      
+      <!-- Subscription Status -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">📊 サブスクリプション状態</h2>
+        </div>
+        <div id="subscriptionStatus">
+          <p>読み込み中...</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Payment Section -->
+    <div class="card mt-8" id="paymentSection" style="display: none;">
+      <div class="card-header">
+        <h2 class="card-title">💳 決済</h2>
+      </div>
+      <div id="paymentContent">
+        <p class="mb-4">サービスをご利用いただくには、サブスクリプションの登録が必要です。</p>
+        <p class="mb-8" style="color: var(--text-light);">初月は無料でお試しいただけます。</p>
+        
+        <div class="pricing-grid">
+          <div class="pricing-card">
+            <h3 class="pricing-name">月額プラン</h3>
+            <div class="pricing-price">¥1,000<span>/月</span></div>
+            <p class="pricing-desc">毎月自動更新</p>
+            <ul class="pricing-features">
+              <li>Instagram投稿機能</li>
+              <li>ライセンス発行</li>
+              <li>初月無料</li>
+            </ul>
+            <button class="btn btn-primary" style="width: 100%;" onclick="startCheckout('monthly')">
+              月額プランで開始
+            </button>
+          </div>
+          
+          <div class="pricing-card featured">
+            <span class="pricing-badge">お得</span>
+            <h3 class="pricing-name">年額プラン</h3>
+            <div class="pricing-price">¥10,000<span>/年</span></div>
+            <p class="pricing-desc">2ヶ月分お得</p>
+            <ul class="pricing-features">
+              <li>Instagram投稿機能</li>
+              <li>ライセンス発行</li>
+              <li>初月無料</li>
+              <li>年間2,000円お得</li>
+            </ul>
+            <button class="btn btn-primary" style="width: 100%;" onclick="startCheckout('yearly')">
+              年額プランで開始
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Billing Management (for subscribed users) -->
+    <div class="card mt-8" id="billingSection" style="display: none;">
+      <div class="card-header">
+        <h2 class="card-title">💳 決済管理</h2>
+      </div>
+      <p class="mb-4">Stripeの管理画面で、カード情報の変更や請求履歴の確認ができます。</p>
+      <button class="btn btn-secondary" onclick="openBillingPortal()">
+        決済管理画面を開く
+      </button>
+    </div>
+  </div>
+  
+  <script src="/js/common.js"></script>
+  <script>
+    // Check authentication
+    if (!TokenManager.isLoggedIn()) {
+      window.location.href = '/user/login';
+    }
+    
+    // Check for status parameter (after Stripe checkout)
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    if (status === 'success') {
+      showMessage('決済が完了しました！サブスクリプションが有効になりました。', 'success');
+      // Clean up URL
+      window.history.replaceState({}, document.title, '/user/dashboard');
+    } else if (status === 'canceled') {
+      showMessage('決済がキャンセルされました。', 'warning');
+      window.history.replaceState({}, document.title, '/user/dashboard');
+    }
+    
+    // Load dashboard data
+    loadDashboard();
+    
+    async function loadDashboard() {
+      await Promise.all([
+        loadSubscriptionStatus(),
+        loadLicense()
+      ]);
+    }
+    
+    async function loadSubscriptionStatus() {
+      try {
+        const { data } = await api.get('/api/payment/subscription-status');
+        
+        if (!data.success) {
+          document.getElementById('subscriptionStatus').innerHTML = '<p class="message message-error">読み込みに失敗しました</p>';
+          return;
+        }
+        
+        const sub = data.subscription;
+        let statusHtml = '';
+        let statusBadge = '';
+        
+        if (sub.isActive) {
+          // キャンセル予定かどうかを確認
+          if (sub.cancelAtPeriodEnd) {
+            statusBadge = '<span class="badge badge-warning">解約予定</span>';
+          } else if (sub.status === 'trialing') {
+            statusBadge = '<span class="badge badge-info">無料トライアル中</span>';
+          } else {
+            statusBadge = '<span class="badge badge-success">有効</span>';
+          }
+
+          const planName = sub.plan === 'yearly' ? '年額プラン' : '月額プラン';
+          const endDate = sub.trialEnd || sub.currentPeriodEnd;
+
+          // 期間終了日のラベルを決定
+          let endDateLabel = '次回更新日';
+          if (sub.cancelAtPeriodEnd) {
+            endDateLabel = 'サービス終了日';
+          } else if (sub.status === 'trialing') {
+            endDateLabel = 'トライアル終了日';
+          }
+
+          // プラン変更セクション（解約予定でない場合のみ）
+          let planChangeHtml = '';
+          if (!sub.cancelAtPeriodEnd) {
+            const otherPlan = sub.plan === 'monthly' ? 'yearly' : 'monthly';
+            const otherPlanName = otherPlan === 'yearly' ? '年額プラン' : '月額プラン';
+            const otherPlanPrice = otherPlan === 'yearly' ? '¥10,000/年' : '¥1,000/月';
+
+            planChangeHtml = `
+              <div class="mt-4" style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <div class="stat-label">プラン変更</div>
+                <p style="font-size: 14px; color: var(--text-light); margin-bottom: 12px;">
+                  ${otherPlanName}（${otherPlanPrice}）に変更できます。<br>
+                  次回更新時から新しい料金が適用されます。
+                </p>
+                <button class="btn btn-secondary" onclick="changePlan('${otherPlan}')">
+                  ${otherPlanName}に変更
+                </button>
+              </div>
+            `;
+          }
+
+          statusHtml = `
+            <div class="stat-card">
+              <div class="stat-label">ステータス</div>
+              <div style="margin-bottom: 16px;">${statusBadge}</div>
+              ${sub.cancelAtPeriodEnd ? '<p style="color: var(--warning-color); margin-bottom: 16px;">期間終了後にサービスが停止します</p>' : ''}
+              <div class="stat-label">プラン</div>
+              <div class="stat-value" style="font-size: 20px;">${planName}</div>
+              ${endDate ? `
+                <div class="stat-label mt-4">${endDateLabel}</div>
+                <div>${formatDate(endDate)}</div>
+              ` : ''}
+              ${planChangeHtml}
+            </div>
+          `;
+
+          // Show billing section (有効なサブスクリプションがある場合)
+          document.getElementById('billingSection').style.display = 'block';
+        } else if (sub.status === 'canceled') {
+          // 解約済み（期間終了後）
+          statusBadge = '<span class="badge badge-error">解約済み</span>';
+          statusHtml = `
+            <div class="stat-card">
+              <div class="stat-label">ステータス</div>
+              <div style="margin-bottom: 16px;">${statusBadge}</div>
+              <p style="color: var(--text-light);">サブスクリプションは解約されました。<br>再度ご利用いただく場合は、下記よりプランを選択してください。</p>
+            </div>
+          `;
+
+          // Show payment section
+          document.getElementById('paymentSection').style.display = 'block';
+        } else {
+          statusBadge = '<span class="badge badge-warning">未登録</span>';
+          statusHtml = `
+            <div class="stat-card">
+              <div class="stat-label">ステータス</div>
+              <div style="margin-bottom: 16px;">${statusBadge}</div>
+              <p style="color: var(--text-light);">サブスクリプションが登録されていません。<br>下記よりプランを選択してください。</p>
+            </div>
+          `;
+
+          // Show payment section
+          document.getElementById('paymentSection').style.display = 'block';
+        }
+        
+        document.getElementById('subscriptionStatus').innerHTML = statusHtml;
+      } catch (error) {
+        document.getElementById('subscriptionStatus').innerHTML = '<p class="message message-error">読み込みに失敗しました</p>';
+      }
+    }
+    
+    async function loadLicense() {
+      try {
+        const { data } = await api.get('/api/user/license');
+        
+        if (!data.success) {
+          document.getElementById('licenseSection').innerHTML = '<p class="message message-error">読み込みに失敗しました</p>';
+          return;
+        }
+        
+        let licenseHtml = '';
+        
+        if (data.license) {
+          licenseHtml = `
+            <div class="stat-card">
+              <div class="stat-label">ライセンスキー</div>
+              <div class="license-display">
+                <code>${data.license.licenseKey}</code>
+                <button class="copy-btn" onclick="copyLicense('${data.license.licenseKey}')">コピー</button>
+              </div>
+              <div class="stat-label mt-4">ステータス</div>
+              <div>${data.license.isActive ? '<span class="badge badge-success">有効</span>' : '<span class="badge badge-error">無効</span>'}</div>
+              ${data.license.domain ? `
+                <div class="stat-label mt-4">登録ドメイン</div>
+                <div>${data.license.domain}</div>
+              ` : `
+                <div class="stat-label mt-4">登録ドメイン</div>
+                <div style="color: var(--text-light);">未登録（WordPressプラグインで初回使用時に登録されます）</div>
+              `}
+              <div class="stat-label mt-4">発行日</div>
+              <div>${formatDate(data.license.createdAt)}</div>
+              ${data.license.domain ? `
+                <div class="mt-4">
+                  <button class="btn btn-secondary btn-sm" onclick="resetLicenseDomain()">ドメイン設定をリセット</button>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        } else {
+          licenseHtml = `
+            <div class="stat-card">
+              <p style="color: var(--text-light); margin-bottom: 16px;">ライセンスが発行されていません</p>
+              <button class="btn btn-primary" onclick="issueLicense()" id="issueLicenseBtn">
+                ライセンスを発行する
+              </button>
+              <p style="font-size: 12px; color: var(--text-light); margin-top: 12px;">
+                ※ ライセンスの再発行はできません
+              </p>
+            </div>
+          `;
+        }
+        
+        document.getElementById('licenseSection').innerHTML = licenseHtml;
+      } catch (error) {
+        document.getElementById('licenseSection').innerHTML = '<p class="message message-error">読み込みに失敗しました</p>';
+      }
+    }
+    
+    async function issueLicense() {
+      const btn = document.getElementById('issueLicenseBtn');
+      
+      if (!confirm('ライセンスを発行しますか？\n※ ライセンスの再発行はできません')) {
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = '発行中...';
+      
+      try {
+        const { data } = await api.post('/api/user/license/issue', {});
+        
+        if (data.success) {
+          showMessage('ライセンスを発行しました', 'success');
+          await loadLicense();
+        } else {
+          showMessage(data.error || 'ライセンス発行に失敗しました', 'error');
+          btn.disabled = false;
+          btn.textContent = 'ライセンスを発行する';
+        }
+      } catch (error) {
+        showMessage('通信エラーが発生しました', 'error');
+        btn.disabled = false;
+        btn.textContent = 'ライセンスを発行する';
+      }
+    }
+    
+    async function resetLicenseDomain() {
+      if (!confirm('ドメイン設定をリセットしますか？\n別のドメインでライセンスを使用できるようになります。')) {
+        return;
+      }
+      
+      try {
+        const { data } = await api.post('/api/user/license/reset-domain', {});
+        
+        if (data.success) {
+          showMessage('ドメイン設定をリセットしました', 'success');
+          await loadLicense();
+        } else {
+          showMessage(data.error || 'リセットに失敗しました', 'error');
+        }
+      } catch (error) {
+        showMessage('通信エラーが発生しました', 'error');
+      }
+    }
+    
+    function copyLicense(key) {
+      navigator.clipboard.writeText(key).then(() => {
+        showMessage('ライセンスキーをコピーしました', 'success');
+      }).catch(() => {
+        showMessage('コピーに失敗しました', 'error');
+      });
+    }
+    
+    async function startCheckout(plan) {
+      try {
+        const { data } = await api.post('/api/payment/create-checkout-session', { plan });
+        
+        if (data.success && data.url) {
+          window.location.href = data.url;
+        } else {
+          showMessage(data.error || '決済セッションの作成に失敗しました', 'error');
+        }
+      } catch (error) {
+        showMessage('通信エラーが発生しました', 'error');
+      }
+    }
+    
+    async function openBillingPortal() {
+      try {
+        const { data } = await api.post('/api/payment/billing-portal', {});
+
+        if (data.success && data.url) {
+          window.location.href = data.url;
+        } else {
+          showMessage(data.error || 'ポータルを開けませんでした', 'error');
+        }
+      } catch (error) {
+        showMessage('通信エラーが発生しました', 'error');
+      }
+    }
+
+    async function changePlan(newPlan) {
+      const planName = newPlan === 'yearly' ? '年額プラン' : '月額プラン';
+
+      if (!confirm(`${planName}に変更しますか？\n次回更新時から新しい料金が適用されます。`)) {
+        return;
+      }
+
+      try {
+        const { data } = await api.post('/api/payment/change-plan', { plan: newPlan });
+
+        if (data.success) {
+          showMessage('プランを変更しました', 'success');
+          await loadSubscriptionStatus();
+        } else {
+          showMessage(data.error || 'プラン変更に失敗しました', 'error');
+        }
+      } catch (error) {
+        showMessage('通信エラーが発生しました', 'error');
+      }
+    }
+  </script>
+</body>
+</html>

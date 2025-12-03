@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ユーザー情報登録 - Instagram OAuth Service</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+  <div id="header"></div>
+  
+  <div class="auth-container">
+    <div class="auth-card card">
+      <div class="auth-header">
+        <div class="auth-logo">📝</div>
+        <h1 class="auth-title">ユーザー情報登録</h1>
+        <p class="auth-subtitle">アカウント情報を設定してください</p>
+      </div>
+      
+      <div id="messageContainer"></div>
+      
+      <div id="loadingSection">
+        <p class="text-center">トークンを検証中...</p>
+      </div>
+      
+      <div id="errorSection" style="display: none;">
+        <div class="message message-error">
+          <p id="errorMessage"></p>
+        </div>
+        <div class="text-center mt-4">
+          <a href="/user/send-verification" class="btn btn-primary">新規登録をやり直す</a>
+        </div>
+      </div>
+      
+      <div id="formSection" style="display: none;">
+        <div class="message message-info mb-4">
+          <strong>登録メールアドレス:</strong> <span id="emailDisplay"></span>
+        </div>
+        
+        <form id="registerForm" onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label for="loginAccount">ログインアカウント</label>
+            <input type="text" id="loginAccount" class="form-input" required 
+                   placeholder="半角英数字、ハイフン、アンダースコア"
+                   pattern="[a-zA-Z0-9_-]+" minlength="3">
+            <small class="form-hint">3文字以上、半角英数字・ハイフン・アンダースコアのみ使用可</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="password">パスワード</label>
+            <input type="password" id="password" class="form-input" required 
+                   placeholder="12文字以上" minlength="12">
+            <small class="form-hint">12文字以上、英大文字・英小文字・数字を含む</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="confirmPassword">パスワード（確認）</label>
+            <input type="password" id="confirmPassword" class="form-input" required 
+                   placeholder="パスワードを再入力" minlength="12">
+          </div>
+          
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" id="submitBtn">
+            登録を完了する
+          </button>
+        </form>
+      </div>
+      
+      <div id="successSection" style="display: none;">
+        <div class="message message-success">
+          <p><strong>ユーザー登録が完了しました！</strong></p>
+          <p>ログイン画面からログインしてください。</p>
+        </div>
+        <div class="text-center mt-4">
+          <a href="/user/login" class="btn btn-primary btn-lg">ログインページへ</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/common.js"></script>
+  <script>
+    let verificationToken = null;
+    
+    // Get token from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    verificationToken = urlParams.get('token');
+    
+    if (!verificationToken) {
+      showError('URLが無効です。メールのリンクから再度アクセスしてください。');
+    } else {
+      verifyToken();
+    }
+    
+    async function verifyToken() {
+      try {
+        const response = await fetch(`/api/user/verify-email/${verificationToken}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          document.getElementById('loadingSection').style.display = 'none';
+          document.getElementById('formSection').style.display = 'block';
+          document.getElementById('emailDisplay').textContent = data.email;
+        } else {
+          showError(data.error || 'トークンの検証に失敗しました');
+        }
+      } catch (error) {
+        showError('通信エラーが発生しました');
+      }
+    }
+    
+    function showError(message) {
+      document.getElementById('loadingSection').style.display = 'none';
+      document.getElementById('errorSection').style.display = 'block';
+      document.getElementById('errorMessage').textContent = message;
+    }
+    
+    function validatePassword(password) {
+      if (password.length < 12) {
+        return 'パスワードは12文字以上で入力してください';
+      }
+      if (!/[a-z]/.test(password)) {
+        return 'パスワードには小文字を含めてください';
+      }
+      if (!/[A-Z]/.test(password)) {
+        return 'パスワードには大文字を含めてください';
+      }
+      if (!/[0-9]/.test(password)) {
+        return 'パスワードには数字を含めてください';
+      }
+      return null;
+    }
+    
+    async function handleRegister(e) {
+      e.preventDefault();
+      
+      const loginAccount = document.getElementById('loginAccount').value;
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const submitBtn = document.getElementById('submitBtn');
+      
+      // Validate password
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        showMessage(passwordError, 'error');
+        return;
+      }
+      
+      // Check password match
+      if (password !== confirmPassword) {
+        showMessage('パスワードが一致しません', 'error');
+        return;
+      }
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = '登録中...';
+      
+      try {
+        const response = await fetch('/api/user/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: verificationToken,
+            loginAccount,
+            password
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          document.getElementById('formSection').style.display = 'none';
+          document.getElementById('successSection').style.display = 'block';
+        } else {
+          showMessage(data.error || '登録に失敗しました', 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '登録を完了する';
+        }
+      } catch (error) {
+        showMessage('通信エラーが発生しました', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '登録を完了する';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -31,6 +31,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${PORT:-3000}
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
       FACEBOOK_APP_ID: ${FACEBOOK_APP_ID}
       FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET}
       REDIRECT_URI: ${REDIRECT_URI:-http://localhost:3000/auth/callback}
@@ -40,8 +41,17 @@ services:
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
-      ADMIN_USERNAME : admin
-      ADMIN_PASSWORD : password
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-password}
+      JWT_SECRET: ${JWT_SECRET:-docker_dev_jwt_secret}
+      PGP_ENCRYPTION_KEY: ${PGP_ENCRYPTION_KEY:-docker_dev_pgp_key}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@localhost}
+      SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-Instagram OAuth Service}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID_MONTHLY: ${STRIPE_PRICE_ID_MONTHLY}
+      STRIPE_PRICE_ID_YEARLY: ${STRIPE_PRICE_ID_YEARLY}
     ports:
       - "${PORT:-3000}:3000"
     volumes:

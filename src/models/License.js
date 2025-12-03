@@ -15,6 +15,17 @@ class License {
   }
 
   /**
+   * ユーザーIDでライセンス検索
+   */
+  static async findByUserId(userId) {
+    const result = await pool.query(
+      'SELECT * FROM licenses WHERE user_id = $1',
+      [userId]
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
    * ライセンスを検証（有効かどうか）
    */
   static async validate(licenseKey, domain) {
@@ -64,6 +75,24 @@ class License {
       [licenseKey, userNo, userName]
     );
     return result.rows[0];
+  }
+
+  /**
+   * ユーザーに紐づいたライセンス作成
+   */
+  static async createForUser(userId) {
+    // Check if user already has a license
+    const existingLicense = await this.findByUserId(userId);
+    if (existingLicense) {
+      return { success: false, error: 'このユーザーは既にライセンスを発行済みです', license: existingLicense };
+    }
+
+    const licenseKey = this.generateKey();
+    const result = await pool.query(
+      `INSERT INTO licenses (license_key, user_id) VALUES ($1, $2) RETURNING *`,
+      [licenseKey, userId]
+    );
+    return { success: true, license: result.rows[0] };
   }
 
   /**

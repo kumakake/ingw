@@ -1,6 +1,13 @@
 -- Instagram OAuth Database Schema
 
+-- Enable pgcrypto extension for encryption
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Drop existing tables
+DROP TABLE IF EXISTS email_verifications CASCADE;
+DROP TABLE IF EXISTS password_resets CASCADE;
+DROP TABLE IF EXISTS licenses CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS instagram_users CASCADE;
 
 -- Create instagram_users table
@@ -45,15 +52,72 @@ COMMENT ON COLUMN instagram_users.token_expires_at IS 'Timestamp when the access
 COMMENT ON COLUMN instagram_users.facebook_page_id IS 'Facebook Page ID connected to Instagram Business Account';
 COMMENT ON COLUMN instagram_users.instagram_user_id IS 'Instagram Business Account ID (IG_USER_ID) - primary data for WordPress';
 
--- Licenses table for plugin authorization
-DROP TABLE IF EXISTS licenses CASCADE;
+-- Users table for authentication
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    login_account VARCHAR(255) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    email_encrypted BYTEA NOT NULL,
+    stripe_customer_id VARCHAR(255),
+    subscription_status VARCHAR(50) DEFAULT 'none',
+    subscription_id VARCHAR(255),
+    subscription_plan VARCHAR(50),
+    subscription_current_period_end TIMESTAMP,
+    trial_end TIMESTAMP,
+    cancel_at_period_end BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+CREATE INDEX idx_users_login_account ON users(login_account);
+CREATE INDEX idx_users_stripe_customer_id ON users(stripe_customer_id);
+
+CREATE TRIGGER update_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE users IS 'User accounts for service authentication';
+COMMENT ON COLUMN users.login_account IS 'Unique login account name';
+COMMENT ON COLUMN users.password_hash IS 'Bcrypt hashed password';
+COMMENT ON COLUMN users.email_encrypted IS 'PGP encrypted email address';
+COMMENT ON COLUMN users.subscription_status IS 'Stripe subscription status: none, trialing, active, past_due, canceled, unpaid';
+
+-- Email verifications table for new user registration
+CREATE TABLE email_verifications (
+    id SERIAL PRIMARY KEY,
+    email_encrypted BYTEA NOT NULL,
+    token VARCHAR(64) UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_email_verifications_token ON email_verifications(token);
+
+COMMENT ON TABLE email_verifications IS 'Temporary tokens for email verification during registration';
+
+-- Password resets table
+CREATE TABLE password_resets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(64) UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_password_resets_token ON password_resets(token);
+CREATE INDEX idx_password_resets_user_id ON password_resets(user_id);
+
+COMMENT ON TABLE password_resets IS 'Temporary tokens for password reset requests';
+
+-- Licenses table for plugin authorization
 CREATE TABLE licenses (
     id SERIAL PRIMARY KEY,
     license_key VARCHAR(32) UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     domain VARCHAR(255),
-    user_no VARCHAR(255),
-    user_name VARCHAR(255),
     is_active BOOLEAN DEFAULT true,
     activated_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -62,6 +126,7 @@ CREATE TABLE licenses (
 
 CREATE INDEX idx_license_key ON licenses(license_key);
 CREATE INDEX idx_license_domain ON licenses(domain);
+CREATE INDEX idx_license_user_id ON licenses(user_id);
 
 CREATE TRIGGER update_licenses_updated_at
     BEFORE UPDATE ON licenses
@@ -70,5 +135,22 @@ CREATE TRIGGER update_licenses_updated_at
 
 COMMENT ON TABLE licenses IS 'Plugin license keys for authorization';
 COMMENT ON COLUMN licenses.license_key IS '32-character unique license key';
+COMMENT ON COLUMN licenses.user_id IS 'Reference to user who owns this license';
 COMMENT ON COLUMN licenses.domain IS 'Activated domain for this license';
 COMMENT ON COLUMN licenses.is_active IS 'Whether the license is currently active';
+
+-- Helper function to encrypt data with PGP
+CREATE OR REPLACE FUNCTION encrypt_data(data TEXT, key TEXT)
+RETURNS BYTEA AS $$
+BEGIN
+    RETURN pgp_sym_encrypt(data, key);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Helper function to decrypt data with PGP
+CREATE OR REPLACE FUNCTION decrypt_data(encrypted_data BYTEA, key TEXT)
+RETURNS TEXT AS $$
+BEGIN
+    RETURN pgp_sym_decrypt(encrypted_data, key);
+END;
+$$ LANGUAGE plpgsql;
