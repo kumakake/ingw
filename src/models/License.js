@@ -133,7 +133,14 @@ class License {
    */
   static async getAll() {
     const result = await pool.query(
-      'SELECT * FROM licenses ORDER BY created_at DESC'
+      `SELECT
+        l.*,
+        u.subscription_status,
+        u.subscription_current_period_end,
+        u.login_account
+      FROM licenses l
+      LEFT JOIN users u ON l.user_id = u.id
+      ORDER BY l.created_at DESC`
     );
     return result.rows;
   }

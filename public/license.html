@@ -210,6 +210,31 @@
             color: #856404;
         }
 
+        .subscription-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .subscription-trialing {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .subscription-canceled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .subscription-past_due {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .subscription-none {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+
         .action-buttons {
             display: flex;
             gap: 5px;
@@ -395,6 +420,8 @@
                         <th>ライセンスキー</th>
                         <th>ドメイン</th>
                         <th style="width:50px">状態</th>
+                        <th>契約状態</th>
+                        <th>契約更新日</th>
                         <th>発行日</th>
                         <th>操作</th>
                     </tr>
@@ -466,6 +493,21 @@
             }
         }
 
+        function getSubscriptionBadge(status) {
+            const labels = {
+                'active': '有効',
+                'trialing': 'トライアル',
+                'canceled': '解約済み',
+                'past_due': '支払遅延',
+                'unpaid': '未払い',
+                'none': '未契約'
+            };
+            const statusKey = status || 'none';
+            const label = labels[statusKey] || '未契約';
+            const cssClass = statusKey === 'unpaid' ? 'past_due' : statusKey;
+            return `<span class="status-badge subscription-${cssClass}">${label}</span>`;
+        }
+
         function getActionButtons(license) {
             let buttons = `<button class="copy-btn" onclick="copyToClipboard('${license.licenseKey}')">コピー</button>`;
             buttons += `<button class="btn btn-sm" onclick="openEditModal('${license.licenseKey}', '${license.userNo || ''}', '${license.userName || ''}')">編集</button>`;
@@ -519,6 +561,8 @@
                 `<span class="license-key">${l.licenseKey}</span>`,
                 l.domain || '-',
                 getStatusBadge(l),
+                getSubscriptionBadge(l.subscriptionStatus),
+                formatDate(l.subscriptionPeriodEnd),
                 formatDate(l.createdAt),
                 getActionButtons(l)
             ]);
@@ -680,11 +724,11 @@
                 language: {
                     url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/ja.json'
                 },
-                order: [[5, 'desc']],
+                order: [[7, 'desc']],
                 pageLength: 25,
                 lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "全て"]],
                 columnDefs: [
-                    { orderable: false, targets: 6 }
+                    { orderable: false, targets: 8 }
                 ]
             });
 

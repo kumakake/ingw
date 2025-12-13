@@ -107,6 +107,9 @@ class LicenseController {
           isActive: l.is_active,
           activatedAt: l.activated_at,
           createdAt: l.created_at,
+          subscriptionStatus: l.subscription_status,
+          subscriptionPeriodEnd: l.subscription_current_period_end,
+          loginAccount: l.login_account,
         })),
       });
     } catch (error) {
