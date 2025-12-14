@@ -1,5 +1,7 @@
 const stripeService = require('../services/stripeService');
 const User = require('../models/User');
+const { createLogger } = require('../config/logger');
+const logger = createLogger('payment');
 
 // Create checkout session
 const createCheckoutSession = async (req, res) => {
@@ -30,7 +32,7 @@ const createCheckoutSession = async (req, res) => {
       url: session.url
     });
   } catch (error) {
-    console.error('Create checkout session error:', error);
+    logger.error({ err: error, userId: req.user?.id }, 'Create checkout session error');
     res.status(500).json({
       success: false,
       error: '決済セッションの作成に失敗しました'
@@ -48,7 +50,7 @@ const createBillingPortalSession = async (req, res) => {
       url: session.url
     });
   } catch (error) {
-    console.error('Create billing portal session error:', error);
+    logger.error({ err: error, userId: req.user?.id }, 'Create billing portal session error');
     
     if (error.message === 'No Stripe customer found') {
       return res.status(400).json({
@@ -81,7 +83,7 @@ const getSubscriptionStatus = async (req, res) => {
       subscription: status
     });
   } catch (error) {
-    console.error('Get subscription status error:', error);
+    logger.error({ err: error, userId: req.user?.id }, 'Get subscription status error');
     res.status(500).json({
       success: false,
       error: 'サブスクリプション状態の取得に失敗しました'
@@ -99,7 +101,7 @@ const cancelSubscription = async (req, res) => {
       message: 'サブスクリプションは現在の期間終了後にキャンセルされます'
     });
   } catch (error) {
-    console.error('Cancel subscription error:', error);
+    logger.error({ err: error, userId: req.user?.id }, 'Cancel subscription error');
 
     if (error.message === 'No active subscription found') {
       return res.status(400).json({
@@ -147,7 +149,7 @@ const changePlan = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Change plan error:', error);
+    logger.error({ err: error, userId: req.user?.id }, 'Change plan error');
 
     if (error.message === 'No active subscription found') {
       return res.status(400).json({
@@ -171,7 +173,7 @@ const handleWebhook = async (req, res) => {
     const result = await stripeService.handleWebhook(req.body, signature);
     res.json(result);
   } catch (error) {
-    console.error('Webhook error:', error);
+    logger.error({ err: error }, 'Webhook error');
     res.status(400).json({
       success: false,
       error: error.message

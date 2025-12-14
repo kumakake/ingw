@@ -3,6 +3,9 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+const { createLogger, httpLogger } = require('./config/logger');
+const appLogger = createLogger('app');
+
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 const licenseRoutes = require('./routes/license');
@@ -20,19 +23,22 @@ const PORT = process.env.PORT || 3000;
 app.post('/api/webhook/stripe', 
   express.raw({ type: 'application/json' }), 
   async (req, res) => {
-    console.log('=== Stripe Webhook Request ===');
-    console.log('Body type:', typeof req.body);
-    console.log('Is Buffer:', Buffer.isBuffer(req.body));
-    console.log('Body length:', req.body?.length);
+    const webhookLogger = createLogger('webhook');
+    webhookLogger.info({ 
+      bodyType: typeof req.body, 
+      isBuffer: Buffer.isBuffer(req.body),
+      bodyLength: req.body?.length,
+      signaturePresent: !!req.headers['stripe-signature']
+    }, 'Stripe webhook request received');
     
     const signature = req.headers['stripe-signature'];
-    console.log('Signature present:', !!signature);
     
     try {
       const result = await paymentController.handleWebhookDirect(req.body, signature);
+      webhookLogger.info('Stripe webhook processed successfully');
       res.json(result);
     } catch (error) {
-      console.error('Webhook error:', error);
+      webhookLogger.error({ err: error }, 'Stripe webhook error');
       res.status(400).json({ success: false, error: error.message });
     }
   }
@@ -52,6 +58,9 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// HTTPアクセスログ
+app.use(httpLogger);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -82,7 +91,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  appLogger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
   res.status(500).json({
     success: false,
     error: process.env.NODE_ENV === 'production'
@@ -92,9 +101,11 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(` InstaBridge running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Redirect URI: ${process.env.REDIRECT_URI}`);
+  appLogger.info({ 
+    port: PORT, 
+    env: process.env.NODE_ENV || 'development',
+    redirectUri: process.env.REDIRECT_URI 
+  }, 'InstaBridge started');
 
   // トークン自動延長スケジューラーを開始
   if (process.env.NODE_ENV !== 'test') {

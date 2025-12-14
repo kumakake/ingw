@@ -1,5 +1,7 @@
 const InstagramUser = require('../models/InstagramUser');
 const instagramService = require('./instagramService');
+const { createLogger } = require('../config/logger');
+const logger = createLogger('scheduler');
 
 class TokenScheduler {
   constructor() {
@@ -9,17 +11,17 @@ class TokenScheduler {
   }
 
   async refreshExpiringTokens() {
-    console.log(`[TokenScheduler] Checking for expiring tokens (within ${this.refreshBeforeDays} days)...`);
+    logger.info({ refreshBeforeDays: this.refreshBeforeDays }, 'Checking for expiring tokens');
 
     try {
       const expiringUsers = await InstagramUser.getExpiringTokens(this.refreshBeforeDays);
 
       if (expiringUsers.length === 0) {
-        console.log('[TokenScheduler] No expiring tokens found.');
+        logger.info('No expiring tokens found');
         return { refreshed: 0, failed: 0 };
       }
 
-      console.log(`[TokenScheduler] Found ${expiringUsers.length} expiring tokens.`);
+      logger.info({ count: expiringUsers.length }, 'Found expiring tokens');
 
       let refreshed = 0;
       let failed = 0;
@@ -29,10 +31,10 @@ class TokenScheduler {
           const { accessToken, expiresAt } = await instagramService.refreshLongLivedToken(user.access_token);
           await InstagramUser.updateToken(user.facebook_page_id, accessToken, expiresAt);
 
-          console.log(`[TokenScheduler] ✅ Refreshed token for ${user.facebook_page_name} (${user.instagram_username}). New expiry: ${expiresAt.toISOString()}`);
+          logger.info({ pageName: user.facebook_page_name, instagramUsername: user.instagram_username, newExpiry: expiresAt.toISOString() }, 'Token refreshed successfully');
           refreshed++;
         } catch (error) {
-          console.error(`[TokenScheduler] ❌ Failed to refresh token for ${user.facebook_page_name}: ${error.message}`);
+          logger.error({ err: error, pageName: user.facebook_page_name }, 'Failed to refresh token');
           failed++;
         }
 
@@ -40,31 +42,31 @@ class TokenScheduler {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      console.log(`[TokenScheduler] Completed. Refreshed: ${refreshed}, Failed: ${failed}`);
+      logger.info({ refreshed, failed }, 'Token refresh completed');
       return { refreshed, failed };
     } catch (error) {
-      console.error('[TokenScheduler] Error during token refresh:', error);
+      logger.error({ err: error }, 'Error during token refresh');
       throw error;
     }
   }
 
   start() {
     if (this.intervalId) {
-      console.log('[TokenScheduler] Already running.');
+      logger.warn('Scheduler already running');
       return;
     }
 
-    console.log(`[TokenScheduler] Started. Checking every ${this.checkIntervalHours} hours.`);
+    logger.info({ intervalHours: this.checkIntervalHours }, 'Token scheduler started');
 
     // 起動時に一度チェック
     this.refreshExpiringTokens().catch(err => {
-      console.error('[TokenScheduler] Initial check failed:', err);
+      logger.error({ err }, 'Initial token check failed');
     });
 
     // 定期実行
     this.intervalId = setInterval(() => {
       this.refreshExpiringTokens().catch(err => {
-        console.error('[TokenScheduler] Scheduled check failed:', err);
+        logger.error({ err }, 'Scheduled token check failed');
       });
     }, this.checkIntervalHours * 60 * 60 * 1000);
   }
@@ -73,7 +75,7 @@ class TokenScheduler {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('[TokenScheduler] Stopped.');
+      logger.info('Token scheduler stopped');
     }
   }
 }

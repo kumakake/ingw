@@ -1,4 +1,6 @@
 const License = require('../models/License');
+const { createLogger } = require('../config/logger');
+const logger = createLogger('license');
 
 class LicenseController {
   /**
@@ -7,6 +9,8 @@ class LicenseController {
    */
   async validate(req, res) {
     const { license_key, domain } = req.body;
+
+    logger.info({ domain, keyPrefix: license_key?.substring(0, 8) }, 'License validation request');
 
     if (!license_key) {
       return res.status(400).json({
@@ -34,12 +38,14 @@ class LicenseController {
       const result = await License.validate(license_key, domain);
 
       if (!result.valid) {
+        logger.warn({ domain, error: result.error }, 'License validation failed');
         return res.status(403).json({
           success: false,
           error: result.error,
         });
       }
 
+      logger.info({ domain }, 'License validated successfully');
       res.json({
         success: true,
         message: 'ライセンスが有効です',
@@ -50,7 +56,7 @@ class LicenseController {
         },
       });
     } catch (error) {
-      console.error('License validation error:', error);
+      logger.error({ err: error, domain }, 'License validation error');
       res.status(500).json({
         success: false,
         error: 'ライセンス検証中にエラーが発生しました',
@@ -80,7 +86,7 @@ class LicenseController {
         },
       });
     } catch (error) {
-      console.error('License generation error:', error);
+      logger.error({ err: error }, 'License generation error');
       res.status(500).json({
         success: false,
         error: 'ライセンス発行中にエラーが発生しました',
@@ -113,7 +119,7 @@ class LicenseController {
         })),
       });
     } catch (error) {
-      console.error('License list error:', error);
+      logger.error({ err: error }, 'License list error');
       res.status(500).json({
         success: false,
         error: 'ライセンス一覧の取得に失敗しました',
@@ -150,7 +156,7 @@ class LicenseController {
         message: 'ライセンスを無効化しました',
       });
     } catch (error) {
-      console.error('License deactivation error:', error);
+      logger.error({ err: error }, 'License deactivation error');
       res.status(500).json({
         success: false,
         error: 'ライセンス無効化に失敗しました',
@@ -187,7 +193,7 @@ class LicenseController {
         message: 'ライセンスのドメインをリセットしました',
       });
     } catch (error) {
-      console.error('License reset error:', error);
+      logger.error({ err: error }, 'License reset error');
       res.status(500).json({
         success: false,
         error: 'ライセンスリセットに失敗しました',
@@ -229,7 +235,7 @@ class LicenseController {
         },
       });
     } catch (error) {
-      console.error('License update error:', error);
+      logger.error({ err: error }, 'License update error');
       res.status(500).json({
         success: false,
         error: '利用者情報の更新に失敗しました',
@@ -273,7 +279,7 @@ class LicenseController {
         message: 'ライセンスを削除しました',
       });
     } catch (error) {
-      console.error('License deletion error:', error);
+      logger.error({ err: error }, 'License deletion error');
       res.status(500).json({
         success: false,
         error: 'ライセンス削除に失敗しました',

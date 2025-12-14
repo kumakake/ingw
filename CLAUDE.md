@@ -2,6 +2,33 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ Important Rules for Claude
+
+### 修正前の承認確認（Required Approval Before Changes）
+
+コードを修正する前に、**必ず以下の手順を踏むこと**：
+
+1. **修正内容の説明**: 何を、どのように修正するかを明確に説明する
+2. **修正箇所の提示**: 対象ファイルと変更前後のコードを提示する
+3. **ユーザーの承認を待つ**: 承認を得てから修正を実行する
+
+```
+例:
+【修正提案】
+- ファイル: src/app.js
+- 目的: /api/license/validate を公開エンドポイントに変更
+- 変更前: app.use('/api/license', adminAuth, licenseRoutes);
+- 変更後: 
+  app.post('/api/license/validate', ...);  // 公開
+  app.use('/api/license', adminAuth, ...); // 保護
+  
+→ この修正を実行してよろしいですか？
+```
+
+**例外**: 軽微な修正（typo修正、コメント追加等）でも確認を取ること。
+
+---
+
 ## Project Overview
 
 Instagram OAuth service for WordPress integration. Retrieves Instagram Business Account IG_USER_ID through Facebook OAuth 2.0 flow and provides REST API endpoints for external services.

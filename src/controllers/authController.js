@@ -1,5 +1,7 @@
 const instagramService = require('../services/instagramService');
 const InstagramUser = require('../models/InstagramUser');
+const { createLogger } = require('../config/logger');
+const logger = createLogger('auth');
 
 class AuthController {
   async login(req, res) {
@@ -7,7 +9,7 @@ class AuthController {
       const authUrl = instagramService.getAuthUrl();
       res.redirect(authUrl);
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error({ err: error }, 'Login error');
       res.status(500).json({ error: 'Failed to initiate authentication' });
     }
   }
@@ -16,7 +18,7 @@ class AuthController {
     const { code, error, error_description } = req.query;
 
     if (error) {
-      console.error('OAuth error:', error, error_description);
+      logger.error({ error, errorDescription: error_description }, 'OAuth error');
       return res.redirect(`/geting.html?error=${encodeURIComponent(error_description || error)}`);
     }
 
@@ -43,7 +45,7 @@ class AuthController {
       const encodedData = encodeURIComponent(JSON.stringify(resultData));
       res.redirect(`/geting.html?success=true&data=${encodedData}`);
     } catch (error) {
-      console.error('Callback error:', error);
+      logger.error({ err: error }, 'OAuth callback error');
       res.redirect(`/geting.html?error=${encodeURIComponent(error.message)}`);
     }
   }
@@ -64,7 +66,7 @@ class AuthController {
         })),
       });
     } catch (error) {
-      console.error('Get status error:', error);
+      logger.error({ err: error }, 'Get status error');
       res.status(500).json({ error: 'Failed to retrieve status' });
     }
   }
