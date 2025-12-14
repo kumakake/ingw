@@ -59,6 +59,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 app.use('/auth', authRoutes);
 app.use('/api/instagram', apiRoutes);
+// License validate endpoint - public (called from WordPress plugins)
+app.post('/api/license/validate', require('./controllers/licenseController').validate);
+// License management endpoints - protected (admin only)
 app.use('/api/license', adminAuth, licenseRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/payment', paymentRoutes);
