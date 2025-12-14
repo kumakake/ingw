@@ -61,6 +61,51 @@ const validateLicenseAndSubscription = async (req, res, next) => {
   }
 };
 
+// License only validation middleware (for connection test - no subscription required)
+const validateLicenseOnly = async (req, res, next) => {
+  const licenseKey = req.headers['x-license-key'];
+  
+  if (!licenseKey) {
+    return res.status(401).json({
+      success: false,
+      error: 'ライセンスキーが必要です',
+      licenseRequired: true
+    });
+  }
+
+  try {
+    const license = await License.findByKey(licenseKey);
+    
+    if (!license) {
+      return res.status(401).json({
+        success: false,
+        error: '無効なライセンスキーです',
+        invalidLicense: true
+      });
+    }
+
+    if (!license.is_active) {
+      return res.status(403).json({
+        success: false,
+        error: 'ライセンスが無効化されています',
+        licenseInactive: true
+      });
+    }
+
+    req.license = license;
+    next();
+  } catch (error) {
+    console.error('License validation error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'ライセンス検証に失敗しました'
+    });
+  }
+};
+
+// Connection test endpoint (license only, no subscription required)
+router.get('/test-connection/:facebookPageId', validateLicenseOnly, apiController.getInstagramUserByPageId);
+
 // Protected endpoints (require license and subscription)
 router.get('/user/:facebookUserId', validateLicenseAndSubscription, apiController.getInstagramUserId);
 router.get('/page/:facebookPageId', validateLicenseAndSubscription, apiController.getInstagramUserByPageId);

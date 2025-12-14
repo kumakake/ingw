@@ -8,7 +8,7 @@ class ApiController {
     if (!facebookUserId) {
       return res.status(400).json({
         success: false,
-        error: 'Facebook User ID is required',
+        error: 'Facebook User IDは必須です',
       });
     }
 
@@ -18,7 +18,7 @@ class ApiController {
       if (!user) {
         return res.status(404).json({
           success: false,
-          error: 'User not found. Please authenticate first.',
+          error: '指定されたFacebook User IDは登録されていません。先にOAuth認証を行ってください。',
         });
       }
 
@@ -26,7 +26,7 @@ class ApiController {
       if (new Date(user.token_expires_at) < now) {
         return res.status(401).json({
           success: false,
-          error: 'Access token has expired. Please re-authenticate.',
+          error: 'アクセストークンの有効期限が切れています。再認証してください。',
           tokenExpired: true,
         });
       }
@@ -46,7 +46,7 @@ class ApiController {
       console.error('Get Instagram User ID error:', error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error',
+        error: 'サーバー内部エラーが発生しました',
       });
     }
   }
@@ -57,7 +57,7 @@ class ApiController {
     if (!facebookPageId) {
       return res.status(400).json({
         success: false,
-        error: 'Facebook Page ID is required',
+        error: 'Facebook Page IDは必須です',
       });
     }
 
@@ -72,7 +72,7 @@ class ApiController {
       if (!user) {
         return res.status(404).json({
           success: false,
-          error: 'Page not found. Please authenticate first.',
+          error: '指定されたFacebook Page IDは登録されていません。先にOAuth認証を行ってください。',
         });
       }
 
@@ -80,7 +80,7 @@ class ApiController {
       if (new Date(user.token_expires_at) < now) {
         return res.status(401).json({
           success: false,
-          error: 'Access token has expired. Please re-authenticate.',
+          error: 'アクセストークンの有効期限が切れています。再認証してください。',
           tokenExpired: true,
         });
       }
@@ -100,7 +100,7 @@ class ApiController {
       console.error('Get Instagram User by Page ID error:', error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error',
+        error: 'サーバー内部エラーが発生しました',
       });
     }
   }
@@ -126,7 +126,7 @@ class ApiController {
       console.error('Get all users error:', error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error',
+        error: 'サーバー内部エラーが発生しました',
       });
     }
   }
@@ -138,7 +138,7 @@ class ApiController {
     if (!facebookPageId) {
       return res.status(400).json({
         success: false,
-        error: 'Facebook Page ID is required',
+        error: 'Facebook Page IDは必須です',
       });
     }
 
@@ -148,7 +148,7 @@ class ApiController {
       if (!user) {
         return res.status(404).json({
           success: false,
-          error: 'Page not found',
+          error: '指定されたページが見つかりません',
         });
       }
 
@@ -215,7 +215,7 @@ class ApiController {
       console.error('Refresh all tokens error:', error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error',
+        error: 'サーバー内部エラーが発生しました',
       });
     }
   }
@@ -250,7 +250,7 @@ class ApiController {
       console.error('Get expiring tokens error:', error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error',
+        error: 'サーバー内部エラーが発生しました',
       });
     }
   }
