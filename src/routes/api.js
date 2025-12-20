@@ -117,3 +117,5 @@ router.post('/tokens/refresh/:facebookPageId', apiController.refreshToken);  // 
 router.post('/tokens/refresh-all', apiController.refreshAllTokens);      // 全トークン一括延長
 
 module.exports = router;
+module.exports.validateLicenseAndSubscription = validateLicenseAndSubscription;
+module.exports.validateLicenseOnly = validateLicenseOnly;

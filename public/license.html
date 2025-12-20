@@ -395,14 +395,7 @@
         <div class="section">
             <h2>新規ライセンス発行</h2>
             <div class="generate-form">
-                <div class="form-group">
-                    <label for="new-user-no">利用者No</label>
-                    <input type="text" id="new-user-no" placeholder="例: U001">
-                </div>
-                <div class="form-group">
-                    <label for="new-user-name">利用者氏名</label>
-                    <input type="text" id="new-user-name" placeholder="例: 山田太郎" style="width: 200px;">
-                </div>
+                <p style="color: #666; margin-bottom: 15px;">※利用者No・利用者氏名はユーザー登録時に自動設定されます</p>
                 <button class="btn" id="generate-btn" onclick="generateLicense()">
                     ライセンスを発行
                 </button>
@@ -436,25 +429,6 @@
         </div>
     </div>
 
-    <!-- 編集モーダル -->
-    <div class="modal-overlay" id="edit-modal">
-        <div class="modal">
-            <h3>利用者情報の編集</h3>
-            <input type="hidden" id="edit-license-key">
-            <div class="form-group">
-                <label for="edit-user-no">利用者No</label>
-                <input type="text" id="edit-user-no">
-            </div>
-            <div class="form-group">
-                <label for="edit-user-name">利用者氏名</label>
-                <input type="text" id="edit-user-name">
-            </div>
-            <div class="modal-buttons">
-                <button class="btn" style="background: #6c757d;" onclick="closeEditModal()">キャンセル</button>
-                <button class="btn btn-success" onclick="saveUserInfo()">保存</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         const API_BASE = '/api/license';
@@ -510,7 +484,6 @@
 
         function getActionButtons(license) {
             let buttons = `<button class="copy-btn" onclick="copyToClipboard('${license.licenseKey}')">コピー</button>`;
-            buttons += `<button class="btn btn-sm" onclick="openEditModal('${license.licenseKey}', '${license.userNo || ''}', '${license.userName || ''}')">編集</button>`;
 
             if (license.domain) {
                 buttons += `<button class="btn btn-warning btn-sm" onclick="resetLicense('${license.licenseKey}')">リセット</button>`;
@@ -575,8 +548,6 @@
         }
 
         async function generateLicense() {
-            const userNo = document.getElementById('new-user-no').value.trim();
-            const userName = document.getElementById('new-user-name').value.trim();
             const btn = document.getElementById('generate-btn');
 
             btn.disabled = true;
@@ -586,7 +557,7 @@
                 const response = await fetch(`${API_BASE}/generate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_no: userNo, user_name: userName })
+                    body: JSON.stringify({})
                 });
                 const result = await response.json();
 
@@ -595,54 +566,12 @@
                 }
 
                 showMessage(`ライセンスを発行しました: ${result.data.licenseKey}`, 'success');
-                document.getElementById('new-user-no').value = '';
-                document.getElementById('new-user-name').value = '';
                 loadLicenses();
             } catch (error) {
                 showMessage('発行エラー: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'ライセンスを発行';
-            }
-        }
-
-        function openEditModal(licenseKey, userNo, userName) {
-            document.getElementById('edit-license-key').value = licenseKey;
-            document.getElementById('edit-user-no').value = userNo;
-            document.getElementById('edit-user-name').value = userName;
-            document.getElementById('edit-modal').classList.add('active');
-        }
-
-        function closeEditModal() {
-            document.getElementById('edit-modal').classList.remove('active');
-        }
-
-        async function saveUserInfo() {
-            const licenseKey = document.getElementById('edit-license-key').value;
-            const userNo = document.getElementById('edit-user-no').value.trim();
-            const userName = document.getElementById('edit-user-name').value.trim();
-
-            try {
-                const response = await fetch(`${API_BASE}/update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        license_key: licenseKey,
-                        user_no: userNo,
-                        user_name: userName
-                    })
-                });
-                const result = await response.json();
-
-                if (!result.success) {
-                    throw new Error(result.error);
-                }
-
-                showMessage('利用者情報を更新しました', 'success');
-                closeEditModal();
-                loadLicenses();
-            } catch (error) {
-                showMessage('更新エラー: ' + error.message, 'error');
             }
         }
 

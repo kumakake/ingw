@@ -6,7 +6,7 @@ const SALT_ROUNDS = 12;
 class User {
   static async findById(id) {
     const result = await db.query(
-      'SELECT id, login_account, stripe_customer_id, subscription_status, subscription_id, subscription_plan, subscription_current_period_end, trial_end, cancel_at_period_end, created_at, updated_at FROM users WHERE id = $1',
+      'SELECT id, login_account, user_no, stripe_customer_id, subscription_status, subscription_id, subscription_plan, subscription_current_period_end, trial_end, cancel_at_period_end, created_at, updated_at FROM users WHERE id = $1',
       [id]
     );
     return result.rows[0];
@@ -28,6 +28,28 @@ class User {
     return result.rows[0];
   }
 
+  /**
+   * 利用者No（YYMM999999形式）を自動生成
+   * 重複チェックしながら一意の番号を生成
+   */
+  static async generateUserNo() {
+    const now = new Date();
+    const yymm = String(now.getFullYear()).slice(-2) +
+                 String(now.getMonth() + 1).padStart(2, '0');
+
+    let userNo;
+    let exists = true;
+    while (exists) {
+      const random = String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
+      userNo = yymm + random;
+      const check = await db.query(
+        'SELECT 1 FROM users WHERE user_no = $1', [userNo]
+      );
+      exists = check.rows.length > 0;
+    }
+    return userNo;
+  }
+
   static async create(userData) {
     const { loginAccount, password, email } = userData;
     const encryptionKey = process.env.PGP_ENCRYPTION_KEY;
@@ -35,11 +57,14 @@ class User {
     // Hash password with bcrypt
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
+    // Generate user_no (YYMM999999 format)
+    const userNo = await this.generateUserNo();
+
     const result = await db.query(
-      `INSERT INTO users (login_account, password_hash, email_encrypted)
-       VALUES ($1, $2, pgp_sym_encrypt($3, $4))
-       RETURNING id, login_account, created_at`,
-      [loginAccount, passwordHash, email, encryptionKey]
+      `INSERT INTO users (login_account, password_hash, email_encrypted, user_no)
+       VALUES ($1, $2, pgp_sym_encrypt($3, $4), $5)
+       RETURNING id, login_account, user_no, created_at`,
+      [loginAccount, passwordHash, email, encryptionKey, userNo]
     );
 
     return result.rows[0];

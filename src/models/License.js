@@ -135,6 +135,8 @@ class License {
     const result = await pool.query(
       `SELECT
         l.*,
+        u.user_no,
+        u.login_account AS user_name,
         u.subscription_status,
         u.subscription_current_period_end,
         u.login_account

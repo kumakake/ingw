@@ -8,9 +8,11 @@ const appLogger = createLogger('app');
 
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
+const { validateLicenseAndSubscription } = require('./routes/api');
 const licenseRoutes = require('./routes/license');
 const userRoutes = require('./routes/user');
 const paymentRoutes = require('./routes/payment');
+const postRoutes = require('./routes/post');
 const paymentController = require('./controllers/paymentController');
 const tokenScheduler = require('./services/tokenScheduler');
 const adminAuth = require('./middleware/adminAuth');
@@ -74,6 +76,7 @@ app.post('/api/license/validate', require('./controllers/licenseController').val
 app.use('/api/license', adminAuth, licenseRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/post', validateLicenseAndSubscription, postRoutes);
 
 // Serve user pages (SPA-like routing)
 app.get('/user/*', (req, res) => {

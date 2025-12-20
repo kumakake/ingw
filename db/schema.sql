@@ -4,6 +4,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Drop existing tables
+DROP TABLE IF EXISTS post_history CASCADE;
 DROP TABLE IF EXISTS email_verifications CASCADE;
 DROP TABLE IF EXISTS password_resets CASCADE;
 DROP TABLE IF EXISTS licenses CASCADE;
@@ -65,6 +66,7 @@ CREATE TABLE users (
     subscription_current_period_end TIMESTAMP,
     trial_end TIMESTAMP,
     cancel_at_period_end BOOLEAN DEFAULT false,
+    user_no VARCHAR(10) UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -138,6 +140,30 @@ COMMENT ON COLUMN licenses.license_key IS '32-character unique license key';
 COMMENT ON COLUMN licenses.user_id IS 'Reference to user who owns this license';
 COMMENT ON COLUMN licenses.domain IS 'Activated domain for this license';
 COMMENT ON COLUMN licenses.is_active IS 'Whether the license is currently active';
+
+-- Post history table for tracking Instagram posts
+CREATE TABLE post_history (
+    id SERIAL PRIMARY KEY,
+    license_id INTEGER REFERENCES licenses(id) ON DELETE SET NULL,
+    facebook_page_id VARCHAR(255) NOT NULL,
+    instagram_media_id VARCHAR(255) NOT NULL,
+    wordpress_post_id VARCHAR(255),
+    caption TEXT,
+    image_url TEXT,
+    permalink TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_post_history_license_id ON post_history(license_id);
+CREATE INDEX idx_post_history_facebook_page_id ON post_history(facebook_page_id);
+CREATE INDEX idx_post_history_created_at ON post_history(created_at);
+
+COMMENT ON TABLE post_history IS 'History of Instagram posts made through the API';
+COMMENT ON COLUMN post_history.license_id IS 'Reference to the license used for posting';
+COMMENT ON COLUMN post_history.facebook_page_id IS 'Facebook Page ID used for posting';
+COMMENT ON COLUMN post_history.instagram_media_id IS 'Instagram Media ID of the published post';
+COMMENT ON COLUMN post_history.wordpress_post_id IS 'WordPress Post ID for tracking source';
+COMMENT ON COLUMN post_history.permalink IS 'Instagram permalink to the published post';
 
 -- Helper function to encrypt data with PGP
 CREATE OR REPLACE FUNCTION encrypt_data(data TEXT, key TEXT)
