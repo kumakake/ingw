@@ -100,22 +100,24 @@ class LicenseController {
    */
   async list(req, res) {
     try {
-      const licenses = await License.getAll();
+      const users = await License.getAll();
 
       res.json({
         success: true,
-        count: licenses.length,
-        data: licenses.map(l => ({
-          licenseKey: l.license_key,
-          userNo: l.user_no,
-          userName: l.user_name,
-          domain: l.domain,
-          isActive: l.is_active,
-          activatedAt: l.activated_at,
-          createdAt: l.created_at,
-          subscriptionStatus: l.subscription_status,
-          subscriptionPeriodEnd: l.subscription_current_period_end,
-          loginAccount: l.login_account,
+        count: users.length,
+        data: users.map(u => ({
+          userId: u.user_id,
+          userNo: u.user_no,
+          userName: u.user_name,
+          licenseKey: u.license_key || null,
+          domain: u.domain || null,
+          isActive: u.is_active ?? null,
+          activatedAt: u.activated_at || null,
+          licenseCreatedAt: u.license_created_at || null,
+          userCreatedAt: u.user_created_at,
+          subscriptionStatus: u.subscription_status,
+          subscriptionPeriodEnd: u.subscription_current_period_end,
+          loginAccount: u.login_account,
         })),
       });
     } catch (error) {

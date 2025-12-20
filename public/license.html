@@ -375,7 +375,7 @@
         <div class="stats">
             <div class="stat-card">
                 <div class="stat-number" id="stat-total">-</div>
-                <div class="stat-label">総発行数</div>
+                <div class="stat-label">発行数/ユーザー数</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number" id="stat-active">-</div>
@@ -457,10 +457,14 @@
             });
         }
 
-        function getStatusBadge(license) {
-            if (!license.isActive) {
+        function getStatusBadge(user) {
+            // ライセンス未発行の場合
+            if (!user.licenseKey) {
+                return '<span class="status-badge" style="background: #6c757d;">未発行</span>';
+            }
+            if (!user.isActive) {
                 return '<span class="status-badge status-inactive">無効</span>';
-            } else if (license.domain) {
+            } else if (user.domain) {
                 return '<span class="status-badge status-active">使用中</span>';
             } else {
                 return '<span class="status-badge status-unused">未使用</span>';
@@ -482,18 +486,23 @@
             return `<span class="status-badge subscription-${cssClass}">${label}</span>`;
         }
 
-        function getActionButtons(license) {
-            let buttons = `<button class="copy-btn" onclick="copyToClipboard('${license.licenseKey}')">コピー</button>`;
-
-            if (license.domain) {
-                buttons += `<button class="btn btn-warning btn-sm" onclick="resetLicense('${license.licenseKey}')">リセット</button>`;
+        function getActionButtons(user) {
+            // ライセンス未発行の場合
+            if (!user.licenseKey) {
+                return '<span style="color: #999;">-</span>';
             }
-            if (license.isActive) {
-                buttons += `<button class="btn btn-danger btn-sm" onclick="deactivateLicense('${license.licenseKey}')">無効化</button>`;
+
+            let buttons = `<button class="copy-btn" onclick="copyToClipboard('${user.licenseKey}')">コピー</button>`;
+
+            if (user.domain) {
+                buttons += `<button class="btn btn-warning btn-sm" onclick="resetLicense('${user.licenseKey}')">リセット</button>`;
+            }
+            if (user.isActive) {
+                buttons += `<button class="btn btn-danger btn-sm" onclick="deactivateLicense('${user.licenseKey}')">無効化</button>`;
             }
             // 未使用（ドメイン未登録）の場合のみ削除ボタンを表示
-            if (!license.domain) {
-                buttons += `<button class="btn btn-danger btn-sm" onclick="deleteLicense('${license.licenseKey}')" style="background: #343a40;">削除</button>`;
+            if (!user.domain) {
+                buttons += `<button class="btn btn-danger btn-sm" onclick="deleteLicense('${user.licenseKey}')" style="background: #343a40;">削除</button>`;
             }
             return `<div class="action-buttons">${buttons}</div>`;
         }
@@ -515,29 +524,31 @@
             }
         }
 
-        function updateStats(licenses) {
-            const total = licenses.length;
-            const active = licenses.filter(l => l.isActive).length;
-            const activated = licenses.filter(l => l.domain).length;
-            const unused = licenses.filter(l => l.isActive && !l.domain).length;
+        function updateStats(users) {
+            const totalUsers = users.length;
+            const withLicense = users.filter(u => u.licenseKey);
+            const total = withLicense.length;
+            const active = withLicense.filter(u => u.isActive).length;
+            const activated = withLicense.filter(u => u.domain).length;
+            const unused = withLicense.filter(u => u.isActive && !u.domain).length;
 
-            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-total').textContent = `${total} / ${totalUsers}`;
             document.getElementById('stat-active').textContent = active;
             document.getElementById('stat-activated').textContent = activated;
             document.getElementById('stat-unused').textContent = unused;
         }
 
-        function updateTable(licenses) {
-            const tableData = licenses.map(l => [
-                l.userNo || '<span class="editable empty">未設定</span>',
-                l.userName || '<span class="editable empty">未設定</span>',
-                `<span class="license-key">${l.licenseKey}</span>`,
-                l.domain || '-',
-                getStatusBadge(l),
-                getSubscriptionBadge(l.subscriptionStatus),
-                formatDate(l.subscriptionPeriodEnd),
-                formatDate(l.createdAt),
-                getActionButtons(l)
+        function updateTable(users) {
+            const tableData = users.map(u => [
+                u.userNo || '<span class="editable empty">未設定</span>',
+                u.userName || '<span class="editable empty">未設定</span>',
+                u.licenseKey ? `<span class="license-key">${u.licenseKey}</span>` : '<span style="color: #999;">未発行</span>',
+                u.domain || '-',
+                getStatusBadge(u),
+                getSubscriptionBadge(u.subscriptionStatus),
+                formatDate(u.subscriptionPeriodEnd),
+                formatDate(u.licenseKey ? u.licenseCreatedAt : u.userCreatedAt),
+                getActionButtons(u)
             ]);
 
             if (dataTable) {

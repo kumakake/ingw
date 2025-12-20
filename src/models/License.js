@@ -129,20 +129,26 @@ class License {
   }
 
   /**
-   * 全ライセンス取得
+   * 全ユーザー（ライセンス未発行含む）を取得
    */
   static async getAll() {
     const result = await pool.query(
       `SELECT
-        l.*,
+        u.id AS user_id,
         u.user_no,
         u.login_account AS user_name,
         u.subscription_status,
         u.subscription_current_period_end,
-        u.login_account
-      FROM licenses l
-      LEFT JOIN users u ON l.user_id = u.id
-      ORDER BY l.created_at DESC`
+        u.login_account,
+        u.created_at AS user_created_at,
+        l.license_key,
+        l.domain,
+        l.is_active,
+        l.activated_at,
+        l.created_at AS license_created_at
+      FROM users u
+      LEFT JOIN licenses l ON u.id = l.user_id
+      ORDER BY u.created_at DESC`
     );
     return result.rows;
   }
