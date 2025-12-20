@@ -84,6 +84,7 @@ COMMENT ON COLUMN users.login_account IS 'Unique login account name';
 COMMENT ON COLUMN users.password_hash IS 'Bcrypt hashed password';
 COMMENT ON COLUMN users.email_encrypted IS 'PGP encrypted email address';
 COMMENT ON COLUMN users.subscription_status IS 'Stripe subscription status: none, trialing, active, past_due, canceled, unpaid';
+COMMENT ON COLUMN users.cancel_at_period_end IS 'Whether subscription will be canceled at period end';
 
 -- Email verifications table for new user registration
 CREATE TABLE email_verifications (

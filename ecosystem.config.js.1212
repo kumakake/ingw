@@ -1,0 +1,32 @@
+module.exports = {
+  apps: [
+    {
+      name               : 'in-gateway-api',
+      script             : 'src/app.js',
+      instances          : 1,
+      autorestart        : true,
+      watch              : false,
+      max_memory_restart : '256M',
+      env: {
+        NODE_ENV            : 'production',
+        PORT                : 3036,
+        DB_HOST             : 'localhost',
+        DB_PORT             : 5432,
+        DB_NAME             : 'instagram_oauth_db',
+        DB_USER             : 'adm_instagw',
+        DB_PASSWORD         : 'pP4gz81AkDiaeaTb',
+        FACEBOOK_APP_ID     : '1408232524635528',
+        FACEBOOK_APP_SECRET : '871dfdda97f420e9446a464dd266414a',
+        REDIRECT_URI        : 'https://ingw.ai-trans-labo.fun/auth/callback',
+        ALLOWED_ORIGINS     : 'https://ingw.ai-trans-labo.fun',
+        SESSION_SECRET      : 'gRtPs5wS4okwAyF9HQBRE0wwBYhaaNir',
+        ADMIN_USERNAME      : 'admina',
+        ADMIN_PASSWORD      : 'je4tOshisan'
+      },
+      error_file      : './logs/error.log',
+      out_file        : './logs/out.log',
+      log_date_format : 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs      : true,
+    },
+  ],
+};

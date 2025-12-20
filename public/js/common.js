@@ -99,7 +99,7 @@ const Header = {
         <div class="header-container">
           <a href="/" class="logo">
             <span class="logo-icon">📸</span>
-            Instagram OAuth Service
+            InsraBridge - WordPress/Instagram連携サービス
           </a>
           <nav class="header-nav">
             ${isLoggedIn ? `
