@@ -141,6 +141,7 @@ class License {
         u.subscription_current_period_end,
         u.login_account,
         u.created_at AS user_created_at,
+        l.id AS license_id,
         l.license_key,
         l.domain,
         l.is_active,

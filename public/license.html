@@ -360,6 +360,161 @@
             color: #999;
             font-style: italic;
         }
+
+        /* 投稿ログモーダル */
+        .modal-large {
+            max-width: 900px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-large h3 {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .attempts-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .attempts-stat {
+            text-align: center;
+        }
+
+        .attempts-stat-number {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .attempts-stat-number.success { color: #27ae60; }
+        .attempts-stat-number.failed { color: #e74c3c; }
+        .attempts-stat-number.warning { color: #f39c12; }
+        .attempts-stat-number.info { color: #3498db; }
+
+        .attempts-stat-label {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .attempts-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .attempts-table th {
+            background: #667eea;
+            color: white;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .attempts-table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .attempts-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-success { color: #27ae60; font-weight: 600; }
+        .status-failed { color: #e74c3c; font-weight: 600; }
+        .status-rate_limited { color: #f39c12; font-weight: 600; }
+        .status-token_expired { color: #9b59b6; font-weight: 600; }
+        .status-container_error { color: #e67e22; font-weight: 600; }
+        .status-publish_error { color: #c0392b; font-weight: 600; }
+
+        .quota-bar {
+            width: 100px;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+
+        .quota-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .quota-bar-fill.low { background: #27ae60; }
+        .quota-bar-fill.medium { background: #f39c12; }
+        .quota-bar-fill.high { background: #e74c3c; }
+
+        .btn-info {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        }
+
+        .error-message-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .error-message-cell:hover {
+            white-space: normal;
+            word-break: break-all;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -429,6 +584,83 @@
         </div>
     </div>
 
+    <!-- 投稿ログモーダル -->
+    <div class="modal-overlay" id="attempts-modal">
+        <div class="modal modal-large">
+            <h3>
+                <span>投稿ログ - <span id="modal-user-name">-</span></span>
+                <button class="close-btn" onclick="closeAttemptsModal()">&times;</button>
+            </h3>
+
+            <!-- 統計 -->
+            <div class="attempts-stats" id="attempts-stats">
+                <div class="attempts-stat">
+                    <div class="attempts-stat-number info" id="attempts-total">-</div>
+                    <div class="attempts-stat-label">合計</div>
+                </div>
+                <div class="attempts-stat">
+                    <div class="attempts-stat-number success" id="attempts-success">-</div>
+                    <div class="attempts-stat-label">成功</div>
+                </div>
+                <div class="attempts-stat">
+                    <div class="attempts-stat-number failed" id="attempts-failed">-</div>
+                    <div class="attempts-stat-label">失敗</div>
+                </div>
+                <div class="attempts-stat">
+                    <div class="attempts-stat-number warning" id="attempts-rate-limit">-</div>
+                    <div class="attempts-stat-label">制限超過</div>
+                </div>
+                <div class="attempts-stat">
+                    <div class="attempts-stat-number info" id="attempts-success-rate">-</div>
+                    <div class="attempts-stat-label">成功率</div>
+                </div>
+                <div class="attempts-stat">
+                    <div class="attempts-stat-number warning" id="attempts-quota">-</div>
+                    <div class="attempts-stat-label">最大使用数</div>
+                </div>
+            </div>
+
+            <!-- タブ -->
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('log')">投稿履歴</button>
+                <button class="tab-btn" onclick="switchTab('errors')">エラー傾向</button>
+            </div>
+
+            <!-- 投稿履歴タブ -->
+            <div class="tab-content active" id="tab-log">
+                <table class="attempts-table">
+                    <thead>
+                        <tr>
+                            <th>日時</th>
+                            <th>ステータス</th>
+                            <th>使用数</th>
+                            <th>エラーコード</th>
+                            <th>エラーメッセージ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attempts-tbody">
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- エラー傾向タブ -->
+            <div class="tab-content" id="tab-errors">
+                <table class="attempts-table">
+                    <thead>
+                        <tr>
+                            <th>エラーコード</th>
+                            <th>エラーメッセージ</th>
+                            <th>発生回数</th>
+                            <th>最終発生</th>
+                        </tr>
+                    </thead>
+                    <tbody id="errors-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         const API_BASE = '/api/license';
@@ -493,6 +725,11 @@
             }
 
             let buttons = `<button class="copy-btn" onclick="copyToClipboard('${user.licenseKey}')">コピー</button>`;
+
+            // 投稿ログボタン（ライセンスIDがある場合のみ）
+            if (user.licenseId) {
+                buttons += `<button class="btn btn-info btn-sm" onclick="showAttempts(${user.licenseId}, '${user.userName || user.userNo}')">投稿ログ</button>`;
+            }
 
             if (user.domain) {
                 buttons += `<button class="btn btn-warning btn-sm" onclick="resetLicense('${user.licenseKey}')">リセット</button>`;
@@ -658,6 +895,156 @@
             }
         }
 
+        // ========== 投稿ログモーダル関連 ==========
+
+        let currentLicenseId = null;
+
+        async function showAttempts(licenseId, userName) {
+            currentLicenseId = licenseId;
+            document.getElementById('modal-user-name').textContent = userName || '-';
+            document.getElementById('attempts-modal').classList.add('active');
+
+            // 統計とログを並行取得
+            await Promise.all([
+                loadAttemptsStats(licenseId),
+                loadAttempts(licenseId),
+                loadErrorTrends()
+            ]);
+        }
+
+        function closeAttemptsModal() {
+            document.getElementById('attempts-modal').classList.remove('active');
+            currentLicenseId = null;
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        async function loadAttemptsStats(licenseId) {
+            try {
+                const response = await fetch(`${API_BASE}/attempts-stats/${licenseId}?hours=24`);
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                const stats = result.data;
+                document.getElementById('attempts-total').textContent = stats.total;
+                document.getElementById('attempts-success').textContent = stats.success;
+                document.getElementById('attempts-failed').textContent = stats.failed + stats.containerError + stats.publishError;
+                document.getElementById('attempts-rate-limit').textContent = stats.rateLimited;
+                document.getElementById('attempts-success-rate').textContent = stats.successRate + '%';
+                document.getElementById('attempts-quota').textContent = stats.maxQuotaUsage + '/25';
+            } catch (error) {
+                console.error('Failed to load attempts stats:', error);
+            }
+        }
+
+        async function loadAttempts(licenseId) {
+            try {
+                const response = await fetch(`${API_BASE}/attempts/${licenseId}?limit=50`);
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                const tbody = document.getElementById('attempts-tbody');
+
+                if (result.data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="no-data">投稿ログがありません</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = result.data.items.map(a => {
+                    const statusLabel = getStatusLabel(a.status);
+                    const quotaHtml = a.quotaUsage !== null ? getQuotaHtml(a.quotaUsage, a.quotaTotal || 25) : '-';
+                    const dateStr = formatDateTime(a.createdAt);
+
+                    return `<tr>
+                        <td>${dateStr}</td>
+                        <td><span class="status-${a.status}">${statusLabel}</span></td>
+                        <td>${quotaHtml}</td>
+                        <td>${a.errorCode || '-'}</td>
+                        <td class="error-message-cell" title="${a.errorMessage || ''}">${a.errorMessage || '-'}</td>
+                    </tr>`;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to load attempts:', error);
+                document.getElementById('attempts-tbody').innerHTML =
+                    '<tr><td colspan="5" class="no-data">データの取得に失敗しました</td></tr>';
+            }
+        }
+
+        async function loadErrorTrends() {
+            try {
+                const response = await fetch(`${API_BASE}/error-trends?hours=24`);
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                const tbody = document.getElementById('errors-tbody');
+
+                if (result.data.errors.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="no-data">直近24時間のエラーはありません</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = result.data.errors.map(e => `<tr>
+                    <td><span class="status-failed">${e.errorCode || '-'}</span></td>
+                    <td class="error-message-cell" title="${e.errorMessage || ''}">${e.errorMessage || '-'}</td>
+                    <td style="font-weight:600">${e.count}</td>
+                    <td>${formatDateTime(e.lastOccurred)}</td>
+                </tr>`).join('');
+            } catch (error) {
+                console.error('Failed to load error trends:', error);
+            }
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'success': '成功',
+                'failed': '失敗',
+                'rate_limited': '制限超過',
+                'token_expired': 'トークン期限切れ',
+                'container_error': 'コンテナエラー',
+                'publish_error': '公開エラー'
+            };
+            return labels[status] || status;
+        }
+
+        function getQuotaHtml(usage, total) {
+            const percent = Math.round((usage / total) * 100);
+            let colorClass = 'low';
+            if (percent >= 80) colorClass = 'high';
+            else if (percent >= 50) colorClass = 'medium';
+
+            return `${usage}/${total}
+                <div class="quota-bar">
+                    <div class="quota-bar-fill ${colorClass}" style="width: ${percent}%"></div>
+                </div>`;
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
         // 初期化
         $(document).ready(function() {
             dataTable = $('#licenses-table').DataTable({
@@ -675,9 +1062,9 @@
             loadLicenses();
 
             // モーダル外クリックで閉じる
-            document.getElementById('edit-modal').addEventListener('click', function(e) {
+            document.getElementById('attempts-modal').addEventListener('click', function(e) {
                 if (e.target === this) {
-                    closeEditModal();
+                    closeAttemptsModal();
                 }
             });
         });

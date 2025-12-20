@@ -11,4 +11,9 @@ router.post('/deactivate', licenseController.deactivate);   // ライセンス�
 router.post('/reset', licenseController.reset);             // ドメインリセット
 router.delete('/delete', licenseController.delete);         // ライセンス削除（未使用のみ）
 
+// 投稿試行ログエンドポイント
+router.get('/attempts/:licenseId', licenseController.getAttempts);       // 試行ログ取得
+router.get('/attempts-stats/:licenseId', licenseController.getAttemptsStats); // 試行統計
+router.get('/error-trends', licenseController.getErrorTrends);           // エラー傾向
+
 module.exports = router;

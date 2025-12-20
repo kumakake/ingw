@@ -1,4 +1,5 @@
 const License = require('../models/License');
+const PostAttempt = require('../models/PostAttempt');
 const { createLogger } = require('../config/logger');
 const logger = createLogger('license');
 
@@ -109,6 +110,7 @@ class LicenseController {
           userId: u.user_id,
           userNo: u.user_no,
           userName: u.user_name,
+          licenseId: u.license_id || null,
           licenseKey: u.license_key || null,
           domain: u.domain || null,
           isActive: u.is_active ?? null,
@@ -285,6 +287,170 @@ class LicenseController {
       res.status(500).json({
         success: false,
         error: 'ライセンス削除に失敗しました',
+      });
+    }
+  }
+
+  /**
+   * 投稿試行ログ取得
+   * GET /api/license/attempts/:licenseId
+   */
+  async getAttempts(req, res) {
+    const { licenseId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    if (!licenseId) {
+      return res.status(400).json({
+        success: false,
+        error: 'ライセンスIDは必須です',
+      });
+    }
+
+    try {
+      const attempts = await PostAttempt.findByLicenseId(
+        parseInt(licenseId, 10),
+        parseInt(limit, 10),
+        parseInt(offset, 10)
+      );
+
+      const total = await PostAttempt.count(parseInt(licenseId, 10));
+
+      res.json({
+        success: true,
+        data: {
+          items: attempts.map(a => ({
+            id: a.id,
+            status: a.status,
+            errorCode: a.error_code,
+            errorMessage: a.error_message,
+            quotaUsage: a.quota_usage,
+            quotaTotal: a.quota_total,
+            imageUrl: a.image_url,
+            mediaId: a.media_id,
+            createdAt: a.created_at,
+          })),
+          total,
+          limit: parseInt(limit, 10),
+          offset: parseInt(offset, 10),
+        },
+      });
+    } catch (error) {
+      logger.error({ err: error }, 'Get attempts error');
+      res.status(500).json({
+        success: false,
+        error: '投稿試行ログの取得に失敗しました',
+      });
+    }
+  }
+
+  /**
+   * 投稿試行統計取得
+   * GET /api/license/attempts-stats/:licenseId
+   */
+  async getAttemptsStats(req, res) {
+    const { licenseId } = req.params;
+    const { hours = 24 } = req.query;
+
+    if (!licenseId) {
+      return res.status(400).json({
+        success: false,
+        error: 'ライセンスIDは必須です',
+      });
+    }
+
+    try {
+      const stats = await PostAttempt.getStats(
+        parseInt(licenseId, 10),
+        parseInt(hours, 10)
+      );
+
+      // 統計を整形
+      const summary = {
+        success: 0,
+        failed: 0,
+        rateLimited: 0,
+        tokenExpired: 0,
+        containerError: 0,
+        publishError: 0,
+        total: 0,
+        maxQuotaUsage: 0,
+      };
+
+      stats.forEach(s => {
+        const count = parseInt(s.count, 10);
+        summary.total += count;
+        if (s.max_quota_usage) {
+          summary.maxQuotaUsage = Math.max(summary.maxQuotaUsage, s.max_quota_usage);
+        }
+
+        switch (s.status) {
+          case 'success':
+            summary.success = count;
+            break;
+          case 'failed':
+            summary.failed = count;
+            break;
+          case 'rate_limited':
+            summary.rateLimited = count;
+            break;
+          case 'token_expired':
+            summary.tokenExpired = count;
+            break;
+          case 'container_error':
+            summary.containerError = count;
+            break;
+          case 'publish_error':
+            summary.publishError = count;
+            break;
+        }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          period: `${hours}h`,
+          ...summary,
+          successRate: summary.total > 0
+            ? Math.round((summary.success / summary.total) * 100)
+            : 0,
+        },
+      });
+    } catch (error) {
+      logger.error({ err: error }, 'Get attempts stats error');
+      res.status(500).json({
+        success: false,
+        error: '投稿試行統計の取得に失敗しました',
+      });
+    }
+  }
+
+  /**
+   * 全体のエラー傾向取得
+   * GET /api/license/error-trends
+   */
+  async getErrorTrends(req, res) {
+    const { hours = 24 } = req.query;
+
+    try {
+      const errors = await PostAttempt.getRecentErrors(parseInt(hours, 10));
+
+      res.json({
+        success: true,
+        data: {
+          period: `${hours}h`,
+          errors: errors.map(e => ({
+            errorCode: e.error_code,
+            errorMessage: e.error_message,
+            count: parseInt(e.count, 10),
+            lastOccurred: e.last_occurred,
+          })),
+        },
+      });
+    } catch (error) {
+      logger.error({ err: error }, 'Get error trends error');
+      res.status(500).json({
+        success: false,
+        error: 'エラー傾向の取得に失敗しました',
       });
     }
   }

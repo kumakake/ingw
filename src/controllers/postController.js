@@ -1,5 +1,6 @@
 const InstagramUser = require('../models/InstagramUser');
 const PostHistory = require('../models/PostHistory');
+const PostAttempt = require('../models/PostAttempt');
 const instagramPostService = require('../services/instagramPostService');
 
 /**
@@ -62,6 +63,17 @@ class PostController {
       // トークン有効期限確認
       const now = new Date();
       if (new Date(igUser.token_expires_at) < now) {
+        // 試行ログ記録（トークン期限切れ）
+        await PostAttempt.create({
+          license_id: req.license?.id,
+          facebook_page_id: facebookPageId,
+          image_url: imageUrl,
+          wordpress_post_id: wordpressPostId,
+          status: PostAttempt.STATUS.TOKEN_EXPIRED,
+          error_code: 'TOKEN_EXPIRED',
+          error_message: 'アクセストークンの有効期限が切れています',
+        });
+
         return res.status(401).json({
           success: false,
           error: 'アクセストークンの有効期限が切れています。再認証してください。',
@@ -76,7 +88,24 @@ class PostController {
         igUser.access_token
       );
 
-      if (limit.quotaUsage >= 25) {
+      // 投稿制限ログ出力
+      const quotaTotal = limit.config.quota_total || 25;
+      console.log(`[IG Quota] Usage: ${limit.quotaUsage}/${quotaTotal}, Remaining: ${quotaTotal - limit.quotaUsage}`);
+
+      if (limit.quotaUsage >= quotaTotal) {
+        // 試行ログ記録（レート制限）
+        await PostAttempt.create({
+          license_id: req.license?.id,
+          facebook_page_id: facebookPageId,
+          image_url: imageUrl,
+          wordpress_post_id: wordpressPostId,
+          status: PostAttempt.STATUS.RATE_LIMITED,
+          error_code: 'RATE_LIMIT_EXCEEDED',
+          error_message: `24時間の投稿上限（${quotaTotal}件）に達しています`,
+          quota_usage: limit.quotaUsage,
+          quota_total: quotaTotal,
+        });
+
         return res.status(429).json({
           success: false,
           error: '24時間の投稿上限（25件）に達しています。しばらく待ってから再試行してください。',
@@ -104,20 +133,59 @@ class PostController {
         permalink: permalink,
       });
 
+      // 試行ログ記録（成功）
+      await PostAttempt.create({
+        license_id: req.license?.id,
+        facebook_page_id: facebookPageId,
+        image_url: imageUrl,
+        wordpress_post_id: wordpressPostId,
+        status: PostAttempt.STATUS.SUCCESS,
+        quota_usage: limit.quotaUsage + 1,
+        quota_total: quotaTotal,
+        media_id: mediaId,
+      });
+
       res.json({
         success: true,
         data: {
           instagramMediaId: mediaId,
           permalink: permalink,
           postedAt: new Date().toISOString(),
+          quotaUsage: limit.quotaUsage + 1,
+          quotaRemaining: quotaTotal - limit.quotaUsage - 1,
         },
       });
     } catch (error) {
       console.error('Instagram post error:', error);
+
+      // エラーコード分類
+      let errorCode = 'PUBLISH_ERROR';
+      let status = PostAttempt.STATUS.FAILED;
+      if (error.message.includes('コンテナ')) {
+        errorCode = 'CONTAINER_ERROR';
+        status = PostAttempt.STATUS.CONTAINER_ERROR;
+      } else if (error.message.includes('公開')) {
+        errorCode = 'PUBLISH_ERROR';
+        status = PostAttempt.STATUS.PUBLISH_ERROR;
+      }
+
+      // 試行ログ記録（失敗）
+      await PostAttempt.create({
+        license_id: req.license?.id,
+        facebook_page_id: facebookPageId,
+        image_url: imageUrl,
+        wordpress_post_id: wordpressPostId,
+        status: status,
+        error_code: errorCode,
+        error_message: error.message,
+        quota_usage: limit?.quotaUsage,
+        quota_total: quotaTotal,
+      });
+
       res.status(500).json({
         success: false,
         error: error.message || 'Instagram投稿に失敗しました',
-        code: 'PUBLISH_ERROR',
+        code: errorCode,
       });
     }
   }
