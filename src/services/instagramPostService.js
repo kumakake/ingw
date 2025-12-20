@@ -72,12 +72,14 @@ class InstagramPostService {
         }
       );
 
+      console.log('[IG Container Create] Response:', JSON.stringify(response.data));
       if (!response.data.id) {
         throw new Error('コンテナIDが返されませんでした');
       }
 
       return response.data.id;
     } catch (error) {
+      console.error('[IG Container Create] Error:', error.response?.data || error.message);
       const errorMessage = error.response?.data?.error?.message || error.message;
       throw new Error(`メディアコンテナ作成に失敗: ${errorMessage}`);
     }
@@ -105,6 +107,7 @@ class InstagramPostService {
         );
 
         const status = response.data.status_code;
+        console.log(`[IG Container] ID: ${containerId}, Status: ${status}, Attempt: ${attempt + 1}/${maxAttempts}`);
 
         if (status === 'FINISHED') {
           return true;
@@ -112,6 +115,10 @@ class InstagramPostService {
 
         if (status === 'ERROR') {
           throw new Error('メディアコンテナの処理中にエラーが発生しました');
+        }
+
+        if (!status || status === 'EXPIRED') {
+          throw new Error(`メディアコンテナのステータスが無効です: ${status || 'undefined'}`);
         }
 
         // IN_PROGRESS の場合は待機して再試行
@@ -148,8 +155,9 @@ class InstagramPostService {
         }
       );
 
+      console.log('[IG Publish] Response:', JSON.stringify(response.data));
       if (!response.data.id) {
-        throw new Error('メディアIDが返されませんでした');
+        throw new Error(`メディアIDが返されませんでした: ${JSON.stringify(response.data)}`);
       }
 
       return response.data.id;
