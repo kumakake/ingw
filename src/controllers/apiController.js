@@ -13,9 +13,9 @@ class ApiController {
     }
 
     try {
-      const user = await InstagramUser.findByFacebookUserId(facebookUserId);
+      const users = await InstagramUser.findByFacebookUserId(facebookUserId);
 
-      if (!user) {
+      if (!users || users.length === 0) {
         return res.status(404).json({
           success: false,
           error: '指定されたFacebook User IDは登録されていません。先にOAuth認証を行ってください。',
@@ -23,24 +23,23 @@ class ApiController {
       }
 
       const now = new Date();
-      if (new Date(user.token_expires_at) < now) {
-        return res.status(401).json({
-          success: false,
-          error: 'アクセストークンの有効期限が切れています。再認証してください。',
-          tokenExpired: true,
-        });
-      }
-
-      res.json({
-        success: true,
-        data: {
+      const data = users.map(user => {
+        const isExpired = new Date(user.token_expires_at) < now;
+        return {
           instagramUserId: user.instagram_user_id,
           facebookPageId: user.facebook_page_id,
           instagramUsername: user.instagram_username,
           facebookPageName: user.facebook_page_name,
-          accessToken: user.access_token,
+          accessToken: isExpired ? null : user.access_token,
           tokenExpiresAt: user.token_expires_at,
-        },
+          tokenExpired: isExpired,
+        };
+      });
+
+      res.json({
+        success: true,
+        count: data.length,
+        data: data,
       });
     } catch (error) {
       console.error('Get Instagram User ID error:', error);

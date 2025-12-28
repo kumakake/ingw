@@ -3,10 +3,10 @@ const db = require('../config/database');
 class InstagramUser {
   static async findByFacebookUserId(facebookUserId) {
     const result = await db.query(
-      'SELECT * FROM instagram_users WHERE facebook_user_id = $1',
+      'SELECT * FROM instagram_users WHERE facebook_user_id = $1 ORDER BY created_at DESC',
       [facebookUserId]
     );
-    return result.rows[0];
+    return result.rows;
   }
 
   static async findByInstagramUserId(instagramUserId) {
@@ -76,10 +76,39 @@ class InstagramUser {
     return result.rows[0];
   }
 
+  static async updateByPageId(facebookPageId, userData) {
+    const {
+      facebookUserId,
+      accessToken,
+      tokenExpiresAt,
+      facebookPageName,
+      instagramUserId,
+      instagramUsername,
+    } = userData;
+
+    const result = await db.query(
+      `UPDATE instagram_users
+       SET facebook_user_id = $1, access_token = $2, token_expires_at = $3,
+           facebook_page_name = $4, instagram_user_id = $5, instagram_username = $6
+       WHERE facebook_page_id = $7
+       RETURNING *`,
+      [
+        facebookUserId,
+        accessToken,
+        tokenExpiresAt,
+        facebookPageName,
+        instagramUserId,
+        instagramUsername,
+        facebookPageId,
+      ]
+    );
+    return result.rows[0];
+  }
+
   static async upsert(userData) {
-    const existing = await this.findByFacebookUserId(userData.facebookUserId);
+    const existing = await this.findByPageId(userData.facebookPageId);
     if (existing) {
-      return await this.update(userData.facebookUserId, userData);
+      return await this.updateByPageId(userData.facebookPageId, userData);
     }
     return await this.create(userData);
   }

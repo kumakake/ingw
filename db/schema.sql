@@ -14,10 +14,10 @@ DROP TABLE IF EXISTS instagram_users CASCADE;
 -- Create instagram_users table
 CREATE TABLE instagram_users (
     id SERIAL PRIMARY KEY,
-    facebook_user_id VARCHAR(255) UNIQUE NOT NULL,
+    facebook_user_id VARCHAR(255) NOT NULL,
     access_token TEXT NOT NULL,
     token_expires_at TIMESTAMP NOT NULL,
-    facebook_page_id VARCHAR(255) NOT NULL,
+    facebook_page_id VARCHAR(255) UNIQUE NOT NULL,
     facebook_page_name VARCHAR(255),
     instagram_user_id VARCHAR(255) NOT NULL,
     instagram_username VARCHAR(255),
