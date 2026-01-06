@@ -235,6 +235,18 @@
             color: #6c757d;
         }
 
+        .subscription-manual {
+            background: #d4edda;
+            color: #155724;
+            border: 1px dashed #28a745;
+        }
+
+        .subscription-manual-expired {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px dashed #ffc107;
+        }
+
         .action-buttons {
             display: flex;
             gap: 5px;
@@ -661,6 +673,28 @@
         </div>
     </div>
 
+    <!-- 手動サブスクリプション設定モーダル -->
+    <div class="modal-overlay" id="manual-subscription-modal">
+        <div class="modal">
+            <h3>手動サブスクリプション設定</h3>
+            <p style="margin-bottom: 15px; color: #666;">
+                対象ユーザー: <strong id="modal-target-user">-</strong>
+            </p>
+            <div class="form-group">
+                <label for="manual-end-date">有効期限（空欄 = 無期限）</label>
+                <input type="date" id="manual-end-date" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <label for="manual-note">備考（任意）</label>
+                <input type="text" id="manual-note" placeholder="銀行振込、特別対応など" style="width: 100%;">
+            </div>
+            <input type="hidden" id="manual-user-id">
+            <div class="modal-buttons">
+                <button class="btn" style="background: #6c757d;" onclick="closeManualSubscriptionModal()">キャンセル</button>
+                <button class="btn btn-success" onclick="submitManualSubscription()">設定する</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const API_BASE = '/api/license';
@@ -703,7 +737,23 @@
             }
         }
 
-        function getSubscriptionBadge(status) {
+        function getSubscriptionBadge(user) {
+            // 手動有効化の場合を優先チェック
+            if (user.manualSubscriptionEnabled) {
+                const now = new Date();
+                const endDate = user.manualSubscriptionEnd ? new Date(user.manualSubscriptionEnd) : null;
+
+                // 無期限または期限内
+                if (!endDate || endDate > now) {
+                    const endLabel = endDate ? ` (~${formatDate(user.manualSubscriptionEnd)})` : ' (無期限)';
+                    const noteLabel = user.manualSubscriptionNote ? ` [${user.manualSubscriptionNote}]` : '';
+                    return `<span class="status-badge subscription-manual" title="${noteLabel}">手動有効${endLabel}</span>`;
+                } else {
+                    // 期限切れ
+                    return `<span class="status-badge subscription-manual-expired">手動(期限切れ)</span>`;
+                }
+            }
+
             const labels = {
                 'active': '有効',
                 'trialing': 'トライアル',
@@ -712,6 +762,7 @@
                 'unpaid': '未払い',
                 'none': '未契約'
             };
+            const status = user.subscriptionStatus;
             const statusKey = status || 'none';
             const label = labels[statusKey] || '未契約';
             const cssClass = statusKey === 'unpaid' ? 'past_due' : statusKey;
@@ -719,29 +770,40 @@
         }
 
         function getActionButtons(user) {
-            // ライセンス未発行の場合
-            if (!user.licenseKey) {
-                return '<span style="color: #999;">-</span>';
+            // ライセンス未発行の場合でも手動サブスクリプション管理は可能
+            let buttons = '';
+
+            // ライセンスがある場合のみライセンス関連ボタン表示
+            if (user.licenseKey) {
+                buttons += `<button class="copy-btn" onclick="copyToClipboard('${user.licenseKey}')">コピー</button>`;
+
+                // 投稿ログボタン（ライセンスIDがある場合のみ）
+                if (user.licenseId) {
+                    buttons += `<button class="btn btn-info btn-sm" onclick="showAttempts(${user.licenseId}, '${user.userName || user.userNo}')">投稿ログ</button>`;
+                }
+
+                if (user.domain) {
+                    buttons += `<button class="btn btn-warning btn-sm" onclick="resetLicense('${user.licenseKey}')">リセット</button>`;
+                }
+                if (user.isActive) {
+                    buttons += `<button class="btn btn-danger btn-sm" onclick="deactivateLicense('${user.licenseKey}')">無効化</button>`;
+                }
+                // 未使用（ドメイン未登録）の場合のみ削除ボタンを表示
+                if (!user.domain) {
+                    buttons += `<button class="btn btn-danger btn-sm" onclick="deleteLicense('${user.licenseKey}')" style="background: #343a40;">削除</button>`;
+                }
             }
 
-            let buttons = `<button class="copy-btn" onclick="copyToClipboard('${user.licenseKey}')">コピー</button>`;
-
-            // 投稿ログボタン（ライセンスIDがある場合のみ）
-            if (user.licenseId) {
-                buttons += `<button class="btn btn-info btn-sm" onclick="showAttempts(${user.licenseId}, '${user.userName || user.userNo}')">投稿ログ</button>`;
+            // 手動サブスクリプション管理ボタン（ユーザーIDがある場合のみ）
+            if (user.userId) {
+                if (user.manualSubscriptionEnabled) {
+                    buttons += `<button class="btn btn-warning btn-sm" onclick="showDisableManualSubscription(${user.userId}, '${user.loginAccount || user.userName || user.userNo}')">手動解除</button>`;
+                } else {
+                    buttons += `<button class="btn btn-success btn-sm" onclick="showManualSubscriptionModal(${user.userId}, '${user.loginAccount || user.userName || user.userNo}')">手動有効化</button>`;
+                }
             }
 
-            if (user.domain) {
-                buttons += `<button class="btn btn-warning btn-sm" onclick="resetLicense('${user.licenseKey}')">リセット</button>`;
-            }
-            if (user.isActive) {
-                buttons += `<button class="btn btn-danger btn-sm" onclick="deactivateLicense('${user.licenseKey}')">無効化</button>`;
-            }
-            // 未使用（ドメイン未登録）の場合のみ削除ボタンを表示
-            if (!user.domain) {
-                buttons += `<button class="btn btn-danger btn-sm" onclick="deleteLicense('${user.licenseKey}')" style="background: #343a40;">削除</button>`;
-            }
-            return `<div class="action-buttons">${buttons}</div>`;
+            return buttons ? `<div class="action-buttons">${buttons}</div>` : '<span style="color: #999;">-</span>';
         }
 
         async function loadLicenses() {
@@ -782,7 +844,7 @@
                 u.licenseKey ? `<span class="license-key">${u.licenseKey}</span>` : '<span style="color: #999;">未発行</span>',
                 u.domain || '-',
                 getStatusBadge(u),
-                getSubscriptionBadge(u.subscriptionStatus),
+                getSubscriptionBadge(u),
                 formatDate(u.subscriptionPeriodEnd),
                 formatDate(u.licenseKey ? u.licenseCreatedAt : u.userCreatedAt),
                 getActionButtons(u)
@@ -1045,6 +1107,73 @@
             });
         }
 
+        // ========== 手動サブスクリプション関連 ==========
+
+        function showManualSubscriptionModal(userId, userName) {
+            document.getElementById('modal-target-user').textContent = userName || '-';
+            document.getElementById('manual-user-id').value = userId;
+            document.getElementById('manual-end-date').value = '';
+            document.getElementById('manual-note').value = '';
+            document.getElementById('manual-subscription-modal').classList.add('active');
+        }
+
+        function closeManualSubscriptionModal() {
+            document.getElementById('manual-subscription-modal').classList.remove('active');
+        }
+
+        async function submitManualSubscription() {
+            const userId = document.getElementById('manual-user-id').value;
+            const endDate = document.getElementById('manual-end-date').value;
+            const note = document.getElementById('manual-note').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/manual-subscription`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: parseInt(userId, 10),
+                        end_date: endDate || null,
+                        note: note || null
+                    })
+                });
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                showMessage('手動サブスクリプションを有効化しました', 'success');
+                closeManualSubscriptionModal();
+                loadLicenses();
+            } catch (error) {
+                showMessage('手動有効化エラー: ' + error.message, 'error');
+            }
+        }
+
+        async function showDisableManualSubscription(userId, userName) {
+            if (!confirm(`${userName} の手動サブスクリプションを解除しますか？`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/manual-subscription/disable`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                showMessage('手動サブスクリプションを解除しました', 'success');
+                loadLicenses();
+            } catch (error) {
+                showMessage('手動解除エラー: ' + error.message, 'error');
+            }
+        }
+
         // 初期化
         $(document).ready(function() {
             dataTable = $('#licenses-table').DataTable({
@@ -1065,6 +1194,12 @@
             document.getElementById('attempts-modal').addEventListener('click', function(e) {
                 if (e.target === this) {
                     closeAttemptsModal();
+                }
+            });
+
+            document.getElementById('manual-subscription-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeManualSubscriptionModal();
                 }
             });
         });

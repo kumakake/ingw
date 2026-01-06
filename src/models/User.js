@@ -151,7 +151,8 @@ class User {
 
   static async hasActiveSubscription(userId) {
     const result = await db.query(
-      `SELECT subscription_status, subscription_current_period_end, trial_end 
+      `SELECT subscription_status, subscription_current_period_end, trial_end,
+              manual_subscription_enabled, manual_subscription_end
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -160,7 +161,25 @@ class User {
     if (!user) return false;
 
     const now = new Date();
-    const { subscription_status, subscription_current_period_end, trial_end } = user;
+    const {
+      subscription_status,
+      subscription_current_period_end,
+      trial_end,
+      manual_subscription_enabled,
+      manual_subscription_end
+    } = user;
+
+    // Check manual subscription first (priority)
+    if (manual_subscription_enabled) {
+      // If no end date, it's unlimited
+      if (!manual_subscription_end) {
+        return true;
+      }
+      // If end date exists and is in the future
+      if (new Date(manual_subscription_end) > now) {
+        return true;
+      }
+    }
 
     // Check if user is in trial period
     if (subscription_status === 'trialing' && trial_end && new Date(trial_end) > now) {
@@ -173,6 +192,44 @@ class User {
     }
 
     return false;
+  }
+
+  /**
+   * 手動サブスクリプションを有効化
+   * @param {number} userId - ユーザーID
+   * @param {Date|null} endDate - 有効期限（nullの場合は無期限）
+   * @param {string|null} note - 備考
+   */
+  static async setManualSubscription(userId, endDate = null, note = null) {
+    const result = await db.query(
+      `UPDATE users SET
+         manual_subscription_enabled = true,
+         manual_subscription_end = $1,
+         manual_subscription_note = $2,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3
+       RETURNING id, login_account, manual_subscription_enabled, manual_subscription_end, manual_subscription_note`,
+      [endDate, note, userId]
+    );
+    return result.rows[0];
+  }
+
+  /**
+   * 手動サブスクリプションを無効化
+   * @param {number} userId - ユーザーID
+   */
+  static async disableManualSubscription(userId) {
+    const result = await db.query(
+      `UPDATE users SET
+         manual_subscription_enabled = false,
+         manual_subscription_end = NULL,
+         manual_subscription_note = NULL,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, login_account, manual_subscription_enabled`,
+      [userId]
+    );
+    return result.rows[0];
   }
 
   static async checkLoginAccountExists(loginAccount) {

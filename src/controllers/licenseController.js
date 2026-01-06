@@ -1,5 +1,6 @@
 const License = require('../models/License');
 const PostAttempt = require('../models/PostAttempt');
+const User = require('../models/User');
 const { createLogger } = require('../config/logger');
 const logger = createLogger('license');
 
@@ -120,6 +121,9 @@ class LicenseController {
           subscriptionStatus: u.subscription_status,
           subscriptionPeriodEnd: u.subscription_current_period_end,
           loginAccount: u.login_account,
+          manualSubscriptionEnabled: u.manual_subscription_enabled || false,
+          manualSubscriptionEnd: u.manual_subscription_end || null,
+          manualSubscriptionNote: u.manual_subscription_note || null,
         })),
       });
     } catch (error) {
@@ -451,6 +455,112 @@ class LicenseController {
       res.status(500).json({
         success: false,
         error: 'エラー傾向の取得に失敗しました',
+      });
+    }
+  }
+
+  /**
+   * 手動サブスクリプション設定
+   * POST /api/license/manual-subscription
+   */
+  async setManualSubscription(req, res) {
+    const { user_id, end_date, note } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'ユーザーIDは必須です',
+      });
+    }
+
+    try {
+      // Parse end_date if provided
+      let endDate = null;
+      if (end_date) {
+        endDate = new Date(end_date);
+        if (isNaN(endDate.getTime())) {
+          return res.status(400).json({
+            success: false,
+            error: '有効期限の形式が無効です',
+          });
+        }
+      }
+
+      const result = await User.setManualSubscription(
+        parseInt(user_id, 10),
+        endDate,
+        note || null
+      );
+
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          error: 'ユーザーが見つかりません',
+        });
+      }
+
+      logger.info({ userId: user_id, endDate, note }, 'Manual subscription enabled');
+
+      res.json({
+        success: true,
+        message: '手動サブスクリプションを有効化しました',
+        data: {
+          userId: result.id,
+          loginAccount: result.login_account,
+          manualSubscriptionEnabled: result.manual_subscription_enabled,
+          manualSubscriptionEnd: result.manual_subscription_end,
+          manualSubscriptionNote: result.manual_subscription_note,
+        },
+      });
+    } catch (error) {
+      logger.error({ err: error, userId: user_id }, 'Set manual subscription error');
+      res.status(500).json({
+        success: false,
+        error: '手動サブスクリプション設定に失敗しました',
+      });
+    }
+  }
+
+  /**
+   * 手動サブスクリプション解除
+   * POST /api/license/manual-subscription/disable
+   */
+  async disableManualSubscription(req, res) {
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'ユーザーIDは必須です',
+      });
+    }
+
+    try {
+      const result = await User.disableManualSubscription(parseInt(user_id, 10));
+
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          error: 'ユーザーが見つかりません',
+        });
+      }
+
+      logger.info({ userId: user_id }, 'Manual subscription disabled');
+
+      res.json({
+        success: true,
+        message: '手動サブスクリプションを解除しました',
+        data: {
+          userId: result.id,
+          loginAccount: result.login_account,
+          manualSubscriptionEnabled: result.manual_subscription_enabled,
+        },
+      });
+    } catch (error) {
+      logger.error({ err: error, userId: user_id }, 'Disable manual subscription error');
+      res.status(500).json({
+        success: false,
+        error: '手動サブスクリプション解除に失敗しました',
       });
     }
   }

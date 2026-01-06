@@ -11,6 +11,10 @@ router.post('/deactivate', licenseController.deactivate);   // ライセンス�
 router.post('/reset', licenseController.reset);             // ドメインリセット
 router.delete('/delete', licenseController.delete);         // ライセンス削除（未使用のみ）
 
+// 手動サブスクリプション管理
+router.post('/manual-subscription', licenseController.setManualSubscription);           // 手動有効化
+router.post('/manual-subscription/disable', licenseController.disableManualSubscription); // 手動解除
+
 // 投稿試行ログエンドポイント
 router.get('/attempts/:licenseId', licenseController.getAttempts);       // 試行ログ取得
 router.get('/attempts-stats/:licenseId', licenseController.getAttemptsStats); // 試行統計
